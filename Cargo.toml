@@ -1,0 +1,12 @@
+[package]
+name = "sp_model"
+version = "0.1.0"
+authors = ["Martin Dahl <martin.dahl@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+sp-domain = { git = "https://github.com/sequenceplanner/sp-rust.git"}
+sp-formal = { git = "https://github.com/sequenceplanner/sp-rust.git"}
+r2r = "0.5.3"
+serde_json = "1.0"
+tokio = { version = "1.9", features = ["full"] }
