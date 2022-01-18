@@ -13,7 +13,7 @@ pub fn make_model() -> (Model, SPState) {
     let initial_state =SPState::new();
 
     
-    return (m, s);
+    return (m, initial_state);
 }
 
 #[cfg(test)]
