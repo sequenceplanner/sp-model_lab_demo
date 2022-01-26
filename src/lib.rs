@@ -1,4 +1,4 @@
-mod resources;
+pub mod resources;
 
 use sp_domain::*;
 
@@ -54,4 +54,3 @@ pub async fn update_sp(compiled_model: &sp_formal::CompiledModel, state: &SPStat
 pub fn assign(p1: &SPPath, p2: &SPPath) -> Action {
     a!(p: p1 <- p: p2)
 }
-

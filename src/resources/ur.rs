@@ -1,8 +1,6 @@
 use sp_domain::*;
 
-
-
-struct UrRobotResource {
+pub struct UrRobotResource {
     pub path: SPPath,
     pub velocity: SPPath,
     pub acceleration: SPPath,
@@ -15,17 +13,18 @@ struct UrRobotResource {
     success: SPPath,
     done: SPPath,   // Measured (changed by runner transitions). Motion completed
     error: SPPath,  // Measured. Error from action
+    action_state: SPPath,
 }
 
 impl UrRobotResource {
     pub fn new(resource: &mut Resource, frame_domain: Vec<SPValue>) -> UrRobotResource {
         let trigger= Variable::new_boolean("trigger", VariableType::Runner);
         let trigger= resource.add_variable(trigger);
-        
+
         let command= resource.add_variable(Variable::new(
             "request/command",VariableType::Runner,SPValueType::String,vec!(),
         ));
-    
+
         let acceleration= resource.add_variable(Variable::new(
             "request/acceleration",VariableType::Runner,SPValueType::Float32,vec!(),
         ));
@@ -38,16 +37,16 @@ impl UrRobotResource {
         let tcp_name= resource.add_variable(Variable::new(
             "request/tcp_name",VariableType::Runner,SPValueType::String,frame_domain.clone(),
         ));
-    
+
         let current_state= resource.add_variable(Variable::new(
             "feedback/current_state", VariableType::Runner, SPValueType::String, vec!(),
         ));
-    
+
         let success= resource.add_variable(Variable::new_boolean(
             "reply/success", VariableType::Runner
         ));
-    
-        let _action_state = resource.setup_ros_action(
+
+        let action_state = resource.setup_ros_action(
             "URScriptControl",
             "/ur_script_controller",
             "ur_tools_msgs/action/URScriptControl",
@@ -69,7 +68,7 @@ impl UrRobotResource {
                 MessageVariable::new(&success, "success"),
             ],
         );
-    
+
         let done= resource.add_variable(Variable::new_boolean(
             "measured/done", VariableType::Measured
         ));
@@ -95,11 +94,12 @@ impl UrRobotResource {
             success,
             done,
             error,
+            action_state,
         }
     }
 
     pub fn run_transition(
-        &self, 
+        &self,
         model: &mut Model,
         guard: Predicate,
         tcp_frame: &str,
@@ -114,24 +114,37 @@ impl UrRobotResource {
         let tcp_name = &self.tcp_name;
         let goal_feature_name = &self.goal_feature_name;
         let real_velocity = &self.real_velocity;
+        let acceleration = &self.acceleration;
         let trigger = &self.trigger;
+        let action_state = &self.action_state;
+        let new_guard = p!([!p: trigger] && [p:action_state == "ok"] && [pp: guard]);
         r.add_transition(Transition::new(
-            &format!("{}_{}_to_{}", &r.path().leaf(), tcp_frame, goal_frame), 
-            guard, 
+            &format!("{}_{}_to_{}", &r.path().leaf(), tcp_frame, goal_frame),
+            new_guard,
             vec![
-                a!(p:c = command), 
-                a!(p:tcp_name = tcp_frame), 
-                a!(p:goal_feature_name = goal_frame), 
-                a!(p:real_velocity <- p:self.velocity), // Add multiplication actions before this works. Or send velocity and scaling to driver
-                a!(p:trigger), 
+                a!(p:c = command),
+                a!(p:tcp_name = tcp_frame),
+                a!(p:goal_feature_name = goal_frame),
+                a!(p:real_velocity = 0.1),
+                a!(p:acceleration = 0.1),
+                // a!(p:real_velocity <- p:self.velocity), // Add multiplication actions before this works. Or send velocity and scaling to driver
+                a!(p:trigger),
             ],
-            TransitionType::Controlled));
+            TransitionType::Runner));
+
+        let guard_done = p!([p:action_state == "succeeded"] &&
+                            [p:c == command] && [p: tcp_name == tcp_frame] &&
+                            [p: goal_feature_name == goal_frame]);
+        let mut action_when_done = action_when_done;
+        action_when_done.push(a!(!p:trigger)); // reset
+
+        r.add_transition(Transition::new(
+            &format!("{}_{}_to_{}_done", &r.path().leaf(), tcp_frame, goal_frame),
+            guard_done,
+            action_when_done,
+            TransitionType::Runner));
 
     }
 
-    
+
 }
-
-
-
-
