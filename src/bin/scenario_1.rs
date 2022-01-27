@@ -1,6 +1,6 @@
 use sp_domain::*;
 use sp_runner::*;
-use sp_model::resources;
+use sp_model::resources::ur::UrRobotResource;
 
 // for convenience we just launch within this binary.
 #[tokio::main]
@@ -14,15 +14,14 @@ pub fn make_model() -> (Model, SPState) {
 
     let ur = m.add_resource("ur");
     let frames: Vec<SPValue> = ["pose_1", "pose_2"].iter().map(|f|f.to_spvalue()).collect();
-    let est_pos = m.add_estimated_domain("ur/last_pos", &frames);
-    let ur = resources::ur::UrRobotResource::new(m.get_resource(&ur), frames);
+    let tool_frames: Vec<SPValue> = ["tool0"].iter().map(|f|f.to_spvalue()).collect();
+    let ur = UrRobotResource::new(m.get_resource(&ur), frames, tool_frames);
 
-    let guard1 = p!(p:est_pos == "pose_2");
+    let est_pos = ur.last_visited_frame.clone();
+    let guard1 = p!([p:est_pos == "pose_2"] || [p:est_pos == "unknown"]);
     let guard2 = p!(p:est_pos == "pose_1");
-    let action1 = a!(p: est_pos = "pose_1");
-    let action2 = a!(p: est_pos = "pose_2");
-    ur.run_transition(&mut m, guard1, "tool0", "pose_1", "move_j", 0.1, vec![action1], vec![]);
-    ur.run_transition(&mut m, guard2, "tool0", "pose_2", "move_j", 0.1, vec![action2], vec![]);
+    ur.run_transition(&mut m, guard1, "tool0", "pose_1", "move_j", 0.1, vec![], vec![]);
+    ur.run_transition(&mut m, guard2, "tool0", "pose_2", "move_j", 0.1, vec![], vec![]);
 
     let initial_state = SPState::new_from_values(
         &[
