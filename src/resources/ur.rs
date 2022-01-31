@@ -15,6 +15,7 @@ pub struct UrRobotResource {
     done: SPPath,   // Measured (changed by runner transitions). Motion completed
     error: SPPath,  // Measured. Error from action
     action_state: SPPath,
+    pub initial_state: SPState,
 }
 
 // I decided to move these to the resource becuase you may
@@ -178,6 +179,18 @@ impl UrRobotResource {
             VariableType::Estimated,SPValueType::String, tool_frame_domain.clone(),
         ));
 
+        let initial_state = SPState::new_from_values(
+            &[
+                (goal_feature_name.clone(), frame_domain[1].clone()),
+                (tcp_name.clone(), tool_frame_domain[1].clone()),
+                (last_visited_frame.clone(), frame_domain[0].clone()),
+                (last_visited_with_tcp.clone(), tool_frame_domain[0].clone()),
+                (trigger.clone(), false.to_spvalue()),
+                (done.clone(), false.to_spvalue()),
+                (error.clone(), false.to_spvalue()),
+            ]
+        );
+
         return UrRobotResource {
             path: resource.path().clone(),
             last_visited_frame,
@@ -193,6 +206,7 @@ impl UrRobotResource {
             done,
             error,
             action_state,
+            initial_state,
         }
     }
 
