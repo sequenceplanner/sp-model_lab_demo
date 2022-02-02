@@ -51,32 +51,32 @@ impl PLCResource {
         let int_from_plc_4= resource.add_variable(Variable::new("measured/int_from_plc_4", VariableType::Measured, SPValueType::Int32, int_from_domain[3].clone()));
         let int_from_plc_5= resource.add_variable(Variable::new("measured/int_from_plc_5", VariableType::Measured, SPValueType::Int32, int_from_domain[4].clone()));
 
-        resource.setup_ros_outgoing("command", "/opc_command", MessageType::JsonFlat, 
+        resource.setup_ros_outgoing("command", "/opc_command", MessageType::Json,
             &[
-                MessageVariable::new(&bool_to_plc_1, "bool_to_plc_1"),
-                MessageVariable::new(&bool_to_plc_2, "bool_to_plc_2"),
-                MessageVariable::new(&bool_to_plc_3, "bool_to_plc_3"),
-                MessageVariable::new(&bool_to_plc_4, "bool_to_plc_4"),
-                MessageVariable::new(&bool_to_plc_5, "bool_to_plc_5"),
-                MessageVariable::new(&int_to_plc_1, "int_to_plc_1"),
-                MessageVariable::new(&int_to_plc_2, "int_to_plc_2"),
-                MessageVariable::new(&int_to_plc_3, "int_to_plc_3"),
-                MessageVariable::new(&int_to_plc_4, "int_to_plc_4"),
-                MessageVariable::new(&int_to_plc_5, "int_to_plc_5"),
+                MessageVariable::new(&bool_to_plc_1, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_to_plc_1"),
+                MessageVariable::new(&bool_to_plc_2, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_to_plc_2"),
+                MessageVariable::new(&bool_to_plc_3, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_to_plc_3"),
+                MessageVariable::new(&bool_to_plc_4, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_to_plc_4"),
+                MessageVariable::new(&bool_to_plc_5, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_to_plc_5"),
+                MessageVariable::new(&int_to_plc_1, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_to_plc_1"),
+                MessageVariable::new(&int_to_plc_2, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_to_plc_2"),
+                MessageVariable::new(&int_to_plc_3, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_to_plc_3"),
+                MessageVariable::new(&int_to_plc_4, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_to_plc_4"),
+                MessageVariable::new(&int_to_plc_5, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_to_plc_5"),
             ]
         );
-        resource.setup_ros_incoming("measured", "/opc_measured", MessageType::JsonFlat, 
+        resource.setup_ros_incoming("measured", "/opc_measured", MessageType::Json,
             &[
-                MessageVariable::new(&bool_from_plc_1, "bool_from_plc_1"),
-                MessageVariable::new(&bool_from_plc_2, "bool_from_plc_2"),
-                MessageVariable::new(&bool_from_plc_3, "bool_from_plc_3"),
-                MessageVariable::new(&bool_from_plc_4, "bool_from_plc_4"),
-                MessageVariable::new(&bool_from_plc_5, "bool_from_plc_5"),
-                MessageVariable::new(&int_from_plc_1, "int_from_plc_1"),
-                MessageVariable::new(&int_from_plc_2, "int_from_plc_2"),
-                MessageVariable::new(&int_from_plc_3, "int_from_plc_3"),
-                MessageVariable::new(&int_from_plc_4, "int_from_plc_4"),
-                MessageVariable::new(&int_from_plc_5, "int_from_plc_5"),
+                MessageVariable::new(&bool_from_plc_1, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_from_plc_1"),
+                MessageVariable::new(&bool_from_plc_2, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_from_plc_2"),
+                MessageVariable::new(&bool_from_plc_3, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_from_plc_3"),
+                MessageVariable::new(&bool_from_plc_4, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_from_plc_4"),
+                MessageVariable::new(&bool_from_plc_5, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.bool_from_plc_5"),
+                MessageVariable::new(&int_from_plc_1, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_from_plc_1"),
+                MessageVariable::new(&int_from_plc_2, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_from_plc_2"),
+                MessageVariable::new(&int_from_plc_3, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_from_plc_3"),
+                MessageVariable::new(&int_from_plc_4, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_from_plc_4"),
+                MessageVariable::new(&int_from_plc_5, "ns=4;s=|var|CODESYS CONTROL FOR Raspberry Pi MC SL.Application.IO.int_from_plc_5"),
             ]
         );
 
@@ -126,7 +126,7 @@ impl PLCResource {
             int_to_plc_4,
             int_to_plc_5,
             initial_state,
-        }        
+        }
 
     }
 
@@ -136,7 +136,7 @@ impl PLCResource {
         model: &mut Model,
     ) {
         let r = model.get_resource(&self.path);
-        
+
 
     }
 
