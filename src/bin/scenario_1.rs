@@ -1,13 +1,15 @@
 use sp_domain::*;
 use sp_runner::*;
 use sp_model::resources::ur::UrRobotResource;
+use sp_model::resources::plc::PLCResource;
 
 // for convenience we just launch within this binary.
 #[tokio::main]
 async fn main() {
     let (model, initial_state) = make_model();
     launch_model(model, initial_state).await.unwrap();
-}
+} 
+
 
 pub fn make_model() -> (Model, SPState) {
     let mut m = Model::new("lab_scenario_1");
@@ -22,6 +24,13 @@ pub fn make_model() -> (Model, SPState) {
     let guard2 = p!(p:est_pos == "pose_1");
     ur.run_transition(&mut m, guard1, "tool0", "pose_1", "move_j", 0.1, vec![], vec![]);
     ur.run_transition(&mut m, guard2, "tool0", "pose_2", "move_j", 0.1, vec![], vec![]);
+
+
+    let plc_path = m.add_resource("plc");
+    let d = vec!(0.to_spvalue(), 1.to_spvalue(), 2.to_spvalue());
+    let domain = [d.clone(), d.clone(), d.clone(), d.clone(), d.clone()];
+    let plc = PLCResource::new(m.get_resource(&plc_path), domain.clone(), domain.clone());
+
 
     // add high level ("product") state
     let op_done = m.add_product_bool("op_done");
