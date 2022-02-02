@@ -112,6 +112,7 @@ impl UrRobotResource {
             Transition::new(
                 &format!("{}_runner_finish_ok", name),
                 p!([!p: done] && [!p: error] && [p: trigger] && [p: action_state == "succeeded"]),
+                Predicate::TRUE,
                 vec![ a!( p: done)],
                 vec![],
                 TransitionType::Runner
@@ -122,6 +123,7 @@ impl UrRobotResource {
             Transition::new(
                 &format!("{}_finish_ok", name),
                 p!([!p: done] && [!p: error] && [p: trigger]),
+                Predicate::TRUE,
                 vec![ a!( p: done)],
                 vec![],
                 TransitionType::Effect
@@ -136,6 +138,7 @@ impl UrRobotResource {
                    [[p: action_state == "timeout"] ||
                     [p: action_state == "aborted"] ||
                     [p: action_state == "canceled"]]),
+                Predicate::TRUE,
                 vec![ a!( p: error)],
                 vec![],
                 TransitionType::Runner
@@ -147,6 +150,7 @@ impl UrRobotResource {
             Transition::new(
                 &format!("{}_finish_error", name),
                 p!([!p: done] && [!p: error] && [p: trigger]),
+                Predicate::TRUE,
                 vec![ a!( p: error)],
                 vec![],
                 TransitionType::Effect
@@ -159,6 +163,7 @@ impl UrRobotResource {
             Transition::new(
                 &format!("{}_runner_reset", name),
                 p!([!p: trigger] && [p: action_state == "ok"] && [[p: done] || [p: error]]),
+                Predicate::TRUE,
                 vec![a!( !p: done), a!( !p: error)],
                 vec![],
                 TransitionType::Runner
@@ -169,6 +174,7 @@ impl UrRobotResource {
             Transition::new(
                 &format!("{}_reset", name),
                 p!([!p: trigger] && [[p: done] || [p: error]]),
+                Predicate::TRUE,
                 vec![a!( !p: done), a!( !p: error)],
                 vec![],
                 TransitionType::Effect
@@ -227,6 +233,7 @@ impl UrRobotResource {
         &self,
         model: &mut Model,
         guard: Predicate,
+        runner_guard: Predicate,
         tcp_frame: &str,
         goal_frame: &str,
         command: &str,
@@ -234,6 +241,7 @@ impl UrRobotResource {
         acceleration: f32,
         mut action_when_done: Vec<Action>,
         mut action_when_error: Vec<Action>,
+        // todo: add runner actions.
     ) {
         let r = model.get_resource(&self.path);
         let c = &self.command;
@@ -250,6 +258,7 @@ impl UrRobotResource {
         r.add_transition(Transition::new(
             &format!("{}_{}_to_{}", &r.path().leaf(), tcp_frame, goal_frame),
             new_guard,
+            runner_guard,
             vec![ // formal model cares about these
                 a!(p:tcp_name = tcp_frame),
                 a!(p:goal_feature_name = goal_frame),
@@ -272,6 +281,7 @@ impl UrRobotResource {
         r.add_transition(Transition::new(
             &format!("{}_{}_to_{}_done", &r.path().leaf(), tcp_frame, goal_frame),
             guard_done,
+            Predicate::TRUE,
             action_when_done,
             vec![],
             TransitionType::Auto));
@@ -287,6 +297,7 @@ impl UrRobotResource {
         r.add_transition(Transition::new(
             &format!("{}_{}_to_{}_error", &r.path().leaf(), tcp_frame, goal_frame),
             guard_error,
+            Predicate::TRUE,
             action_when_error,
             vec![],
             TransitionType::Controlled));

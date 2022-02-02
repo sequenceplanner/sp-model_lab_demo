@@ -17,11 +17,13 @@ pub fn make_model() -> (Model, SPState) {
     let tool_frames: Vec<SPValue> = ["tool0", "tool1"].iter().map(|f|f.to_spvalue()).collect();
     let ur = UrRobotResource::new(m.get_resource(&ur), frames, tool_frames);
 
+    let x = m.add_runner_bool("x");
     let est_pos = ur.last_visited_frame.clone();
     let guard1 = p!([p:est_pos == "pose_2"] || [p:est_pos == "unknown"]);
     let guard2 = p!(p:est_pos == "pose_1");
-    ur.run_transition(&mut m, guard1, "tool0", "pose_1", "move_j", 0.8, 0.5, vec![], vec![]);
-    ur.run_transition(&mut m, guard2, "tool0", "pose_2", "move_j", 0.4, 0.3, vec![], vec![]);
+    let runner_guard = p!(p: x);
+    ur.run_transition(&mut m, guard1, runner_guard.clone(), "tool0", "pose_1", "move_j", 0.8, 0.5, vec![], vec![]);
+    ur.run_transition(&mut m, guard2, runner_guard.clone(), "tool0", "pose_2", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // add high level ("product") state
     let op_done = m.add_product_bool("op_done");
