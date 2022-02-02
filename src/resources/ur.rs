@@ -5,16 +5,16 @@ pub struct UrRobotResource {
     pub last_visited_frame: SPPath,
     pub last_visited_with_tcp: SPPath,
     pub acceleration: SPPath,
-    trigger: SPPath,  // Command. Trigger a robot motion
-    command: SPPath,
-    real_velocity: SPPath,
-    goal_feature_name: SPPath,
-    tcp_name: SPPath,
+    pub trigger: SPPath,  // Command. Trigger a robot motion
+    pub command: SPPath,
+    pub velocity: SPPath,
+    pub goal_feature_name: SPPath,
+    pub tcp_name: SPPath,
     pub current_state: SPPath,  // Measured. feedback from robot
-    success: SPPath,
-    done: SPPath,   // Measured (changed by runner transitions). Motion completed
-    error: SPPath,  // Measured. Error from action
-    action_state: SPPath,
+    pub success: SPPath,
+    pub done: SPPath,   // Measured (changed by runner transitions). Motion completed
+    pub error: SPPath,  // Measured. Error from action
+    pub action_state: SPPath,
     pub initial_state: SPState,
 }
 
@@ -40,11 +40,18 @@ impl UrRobotResource {
             "request/command",VariableType::Runner,SPValueType::String,vec!(),
         ));
 
-        let acceleration= resource.add_variable(Variable::new(
-            "request/acceleration",VariableType::Runner,SPValueType::Float32,vec!(0.1.to_spvalue()),
+        let acceleration_scaling= resource.add_variable(Variable::new(
+            "request/acceleration_scaling",VariableType::Runner,SPValueType::Float32,vec!(0.1.to_spvalue()),
         ));
-        let real_velocity= resource.add_variable(Variable::new(
-            "request/velocity",VariableType::Runner,SPValueType::Float32,vec!(0.1.to_spvalue()),
+        let velocity_scaling= resource.add_variable(Variable::new(
+            "request/velocity_scaling",VariableType::Runner,SPValueType::Float32,vec!(0.1.to_spvalue()),
+        ));
+
+        let acceleration= resource.add_variable(Variable::new(
+            "request/acceleration",VariableType::Runner,SPValueType::Float32,vec!(1.0.to_spvalue()),
+        ));
+        let velocity= resource.add_variable(Variable::new(
+            "request/velocity",VariableType::Runner,SPValueType::Float32,vec!(1.0.to_spvalue()),
         ));
         let goal_feature_name= resource.add_variable(Variable::new(
             "request/goal_feature_name",VariableType::Command,SPValueType::String, frame_domain.clone(),
@@ -69,8 +76,10 @@ impl UrRobotResource {
             // goal variables
             &[
                 MessageVariable::new(&command, "command"),
+                MessageVariable::new(&acceleration_scaling, "acceleration_scaling"),
+                MessageVariable::new(&velocity_scaling, "velocity_scaling"),
                 MessageVariable::new(&acceleration, "acceleration"),
-                MessageVariable::new(&real_velocity, "velocity"),
+                MessageVariable::new(&velocity, "velocity"),
                 MessageVariable::new(&goal_feature_name, "goal_feature_name"),
                 MessageVariable::new(&tcp_name, "tcp_name"),
             ],
@@ -185,6 +194,10 @@ impl UrRobotResource {
                 (tcp_name.clone(), tool_frame_domain[1].clone()),
                 (last_visited_frame.clone(), frame_domain[0].clone()),
                 (last_visited_with_tcp.clone(), tool_frame_domain[0].clone()),
+                (velocity_scaling, 0.1.to_spvalue()),
+                (velocity.clone(), 0.1.to_spvalue()),
+                (acceleration_scaling, 0.1.to_spvalue()),
+                (acceleration.clone(), 0.1.to_spvalue()),
                 (trigger.clone(), false.to_spvalue()),
                 (done.clone(), false.to_spvalue()),
                 (error.clone(), false.to_spvalue()),
@@ -198,7 +211,7 @@ impl UrRobotResource {
             acceleration,
             trigger,
             command,
-            real_velocity,
+            velocity,
             goal_feature_name,
             tcp_name,
             current_state,
@@ -217,7 +230,8 @@ impl UrRobotResource {
         tcp_frame: &str,
         goal_frame: &str,
         command: &str,
-        velocity_scale: f32, // does not work yet
+        velocity: f32,
+        acceleration: f32,
         mut action_when_done: Vec<Action>,
         mut action_when_error: Vec<Action>,
     ) {
@@ -227,8 +241,8 @@ impl UrRobotResource {
         let error = &self.error;
         let tcp_name = &self.tcp_name;
         let goal_feature_name = &self.goal_feature_name;
-        let real_velocity = &self.real_velocity;
-        let acceleration = &self.acceleration;
+        let velocity_path = &self.velocity;
+        let acceleration_path = &self.acceleration;
         let trigger = &self.trigger;
         let last_visited_frame = &self.last_visited_frame;
         let last_visited_with_tcp = &self.last_visited_with_tcp;
@@ -243,9 +257,8 @@ impl UrRobotResource {
             ],
             vec![  // formal model dont care about these
                 a!(p:c = command),
-                a!(p:real_velocity = 0.1),
-                a!(p:acceleration = 0.1),
-                // a!(p:real_velocity <- p:self.velocity), // Add multiplication actions before this works. Or send velocity and scaling to driver
+                a!(p:velocity_path = velocity),
+                a!(p:acceleration_path = acceleration),
             ],
             TransitionType::Controlled));
 

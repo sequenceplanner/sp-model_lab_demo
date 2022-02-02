@@ -20,13 +20,13 @@ pub fn make_model() -> (Model, SPState) {
     let est_pos = ur.last_visited_frame.clone();
     let guard1 = p!([p:est_pos == "pose_2"] || [p:est_pos == "unknown"]);
     let guard2 = p!(p:est_pos == "pose_1");
-    ur.run_transition(&mut m, guard1, "tool0", "pose_1", "move_j", 0.1, vec![], vec![]);
-    ur.run_transition(&mut m, guard2, "tool0", "pose_2", "move_j", 0.1, vec![], vec![]);
+    ur.run_transition(&mut m, guard1, "tool0", "pose_1", "move_j", 0.8, 0.5, vec![], vec![]);
+    ur.run_transition(&mut m, guard2, "tool0", "pose_2", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // add high level ("product") state
     let op_done = m.add_product_bool("op_done");
 
-    let op_1_state = m.add_op(
+    let _op_1_state = m.add_op(
         "do_operation_1",
         // operation model guard.
         &p!(!p: op_done),
@@ -41,7 +41,7 @@ pub fn make_model() -> (Model, SPState) {
         None,
     );
 
-    let op_2_state = m.add_op(
+    let _op_2_state = m.add_op(
         "do_operation_2",
         // operation model guard.
         &p!(p: op_done),
@@ -56,15 +56,45 @@ pub fn make_model() -> (Model, SPState) {
         None,
     );
 
+    m.add_intention(
+        "back",
+        true,
+        &p!(!p: op_done),
+        &p!(p: op_done),
+        &[],
+    );
+
+    m.add_intention(
+        "forth",
+        true,
+        &p!(p: op_done),
+        &p!(!p: op_done),
+        &[],
+    );
+
     let mut initial_state = ur.initial_state.clone();
     initial_state.extend(SPState::new_from_values(
         &[
             (est_pos, "pose_1".to_spvalue()),
             (op_done, false.to_spvalue()),
-            (op_1_state, "i".to_spvalue()),
-            (op_2_state, "i".to_spvalue()),
         ]
     ));
+
+    // operations start in init
+    let op_state = m
+        .operations
+        .iter()
+        .map(|o| (o.path().clone(), "i".to_spvalue()))
+        .collect::<Vec<_>>();
+    initial_state.extend(SPState::new_from_values(op_state.as_slice()));
+
+    // intentions are initially "paused"
+    let intention_state = m
+        .intentions
+        .iter()
+        .map(|i| (i.path().clone(), "i".to_spvalue()))
+        .collect::<Vec<_>>();
+    initial_state.extend(SPState::new_from_values(intention_state.as_slice()));
 
     return (m, initial_state);
 }
