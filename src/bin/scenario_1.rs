@@ -24,6 +24,8 @@ pub fn make_model() -> (Model, SPState) {
     let domain = [d.clone(), d.clone(), d.clone(), d.clone(), d.clone()];
     let plc = PLCResource::new(m.get_resource(&plc_path), domain.clone(), domain.clone());
     let bool_from_plc_1 = plc.bool_from_plc_1.clone();
+    let bool_from_plc_2 = plc.bool_from_plc_2.clone();
+    let bool_to_plc_1 = plc.bool_to_plc_1.clone();
 
     let est_pos = ur.last_visited_frame.clone();
     let guard1 = p!([p:est_pos == "pose_2"] || [p:est_pos == "unknown"]);
@@ -35,6 +37,26 @@ pub fn make_model() -> (Model, SPState) {
 
     // add high level ("product") state
     let op_done = m.add_product_bool("op_done");
+
+    plc.command_transition(&mut m, "start_load", p!(!p: bool_to_plc_1), runner_guard,
+                           vec![ a!(p: bool_to_plc_1)], vec![],
+                           p!([!p: bool_from_plc_2] && [p: bool_to_plc_1]), vec![a!(p: bool_from_plc_2)]);
+    let cylinder_by_sensor = m.add_product_bool("cylinder_by_sensor");
+    m.add_op(
+        "cylinder_to_sensor",
+        // operation model guard.
+        &p!(!p: cylinder_by_sensor),
+        // operation model effects.
+        &[a!(p: cylinder_by_sensor)],
+        // low level goal
+        &p!(p: bool_from_plc_2),
+        // low level actions (should not be needed)
+        &[a!(!p: bool_to_plc_1)],
+        // not auto
+        true,
+        None,
+    );
+
 
     let _op_1_state = m.add_op(
         "do_operation_1",
@@ -88,6 +110,7 @@ pub fn make_model() -> (Model, SPState) {
         &[
             (est_pos, "pose_1".to_spvalue()),
             (op_done, false.to_spvalue()),
+            (cylinder_by_sensor, false.to_spvalue()),
         ]
     ));
 
