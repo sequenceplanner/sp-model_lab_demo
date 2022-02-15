@@ -13,6 +13,7 @@ include(r2r_cargo.cmake)
 r2r_cargo(std_msgs
           sp_msgs
           ur_tools_msgs
+          robotiq_2f_msgs
           rcl
           rcl_action             # as of r2r 0.1.0, we also need the action api
           rmw_fastrtps_cpp       # (needed to build with RMW_IMPLEMENTATION=rmw_fastrtps_cpp)

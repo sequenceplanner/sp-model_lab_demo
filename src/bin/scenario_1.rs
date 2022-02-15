@@ -2,6 +2,7 @@ use sp_domain::*;
 use sp_runner::*;
 use sp_model::resources::ur::UrRobotResource;
 use sp_model::resources::plc::PLCResource;
+use sp_model::resources::robotiq_gripper::RobotiqGripper;
 
 // for convenience we just launch within this binary.
 #[tokio::main]
@@ -18,6 +19,9 @@ pub fn make_model() -> (Model, SPState) {
     let frames: Vec<SPValue> = ["pose_1", "pose_2"].iter().map(|f|f.to_spvalue()).collect();
     let tool_frames: Vec<SPValue> = ["tool0", "tool1"].iter().map(|f|f.to_spvalue()).collect();
     let ur = UrRobotResource::new(m.get_resource(&ur), frames, tool_frames);
+
+    let gripper = m.add_resource("gripper");
+    let gripper = RobotiqGripper::new(m.get_resource(&gripper));
 
     let plc_path = m.add_resource("plc");
     let d = vec!(0.to_spvalue(), 1.to_spvalue(), 2.to_spvalue());
