@@ -22,6 +22,7 @@ pub fn make_model() -> (Model, SPState) {
 
     let gripper = m.add_resource("gripper");
     let gripper = RobotiqGripper::new(m.get_resource(&gripper));
+    let gripper_command = gripper.command.clone();
 
     let plc_path = m.add_resource("plc");
     let d = vec!(0.to_spvalue(), 1.to_spvalue(), 2.to_spvalue());
@@ -71,7 +72,7 @@ pub fn make_model() -> (Model, SPState) {
         // low level goal
         &p!(p: est_pos == "pose_2"),
         // low level actions (should not be needed)
-        &[],
+        &[a!(p:gripper_command = "open")],
         // not auto
         false,
         None,
@@ -86,7 +87,7 @@ pub fn make_model() -> (Model, SPState) {
         // low level goal
         &p!(p: est_pos == "pose_1"),
         // low level actions (should not be needed)
-        &[],
+        &[a!(p:gripper_command = "close")],
         // not auto
         false,
         None,
@@ -115,6 +116,7 @@ pub fn make_model() -> (Model, SPState) {
             (est_pos, "pose_1".to_spvalue()),
             (op_done, false.to_spvalue()),
             (cylinder_by_sensor, false.to_spvalue()),
+            (gripper_command, "open".to_spvalue()),
         ]
     ));
 
