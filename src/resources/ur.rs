@@ -16,6 +16,7 @@ pub struct UrRobotResource {
     pub error: SPPath,  // Measured. Error from action
     pub action_state: SPPath,
     pub initial_state: SPState,
+    t_index: i32,
 }
 
 // I decided to move these to the resource becuase you may
@@ -146,16 +147,16 @@ impl UrRobotResource {
         );
         // formal representation, request -> error
         // this is not really needed for control, but useful for verification.
-        resource.add_transition(
-            Transition::new(
-                &format!("{}_finish_error", name),
-                p!([!p: done] && [!p: error] && [p: trigger]),
-                Predicate::TRUE,
-                vec![ a!( p: error)],
-                vec![],
-                TransitionType::Effect
-            )
-        );
+        // resource.add_transition(
+        //     Transition::new(
+        //         &format!("{}_finish_error", name),
+        //         p!([!p: done] && [!p: error] && [p: trigger]),
+        //         Predicate::TRUE,
+        //         vec![ a!( p: error)],
+        //         vec![],
+        //         TransitionType::Effect
+        //     )
+        // );
 
         // resetting the action (going back to "ok") is done
         // automatically when trigger is taken down.
@@ -200,9 +201,9 @@ impl UrRobotResource {
                 (tcp_name.clone(), tool_frame_domain[1].clone()),
                 (last_visited_frame.clone(), frame_domain[0].clone()),
                 (last_visited_with_tcp.clone(), tool_frame_domain[0].clone()),
-                (velocity_scaling, 0.1.to_spvalue()),
+                (velocity_scaling, 0.5.to_spvalue()),
                 (velocity.clone(), 0.1.to_spvalue()),
-                (acceleration_scaling, 0.1.to_spvalue()),
+                (acceleration_scaling, 0.5.to_spvalue()),
                 (acceleration.clone(), 0.1.to_spvalue()),
                 (trigger.clone(), false.to_spvalue()),
                 (done.clone(), false.to_spvalue()),
@@ -226,11 +227,12 @@ impl UrRobotResource {
             error,
             action_state,
             initial_state,
+            t_index: 0,
         }
     }
 
     pub fn run_transition(
-        &self,
+        &mut self,
         model: &mut Model,
         guard: Predicate,
         runner_guard: Predicate,
@@ -256,7 +258,7 @@ impl UrRobotResource {
         let last_visited_with_tcp = &self.last_visited_with_tcp;
         let new_guard = p!([!p: trigger] && [!p:done] && [!p:error] && [pp: guard]);
         r.add_transition(Transition::new(
-            &format!("{}_{}_to_{}", &r.path().leaf(), tcp_frame, goal_frame),
+            &format!("{}_{}_to_{}_{}", &r.path().leaf(), tcp_frame, goal_frame, self.t_index),
             new_guard,
             runner_guard,
             vec![ // formal model cares about these
@@ -279,7 +281,7 @@ impl UrRobotResource {
         action_when_done.push(a!(p:last_visited_with_tcp = tcp_frame)); // save visited
 
         r.add_transition(Transition::new(
-            &format!("{}_{}_to_{}_done", &r.path().leaf(), tcp_frame, goal_frame),
+            &format!("{}_{}_to_{}_{}_done", &r.path().leaf(), tcp_frame, goal_frame, self.t_index),
             guard_done,
             Predicate::TRUE,
             action_when_done,
@@ -295,12 +297,14 @@ impl UrRobotResource {
         action_when_error.push(a!(p:last_visited_with_tcp = "unknown")); // reset visited
 
         r.add_transition(Transition::new(
-            &format!("{}_{}_to_{}_error", &r.path().leaf(), tcp_frame, goal_frame),
+            &format!("{}_{}_to_{}_{}_error", &r.path().leaf(), tcp_frame, goal_frame, self.t_index),
             guard_error,
             Predicate::TRUE,
             action_when_error,
             vec![],
             TransitionType::Controlled));
+
+        self.t_index += 1;
 
     }
 

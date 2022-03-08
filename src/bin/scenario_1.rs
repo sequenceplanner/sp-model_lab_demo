@@ -16,13 +16,16 @@ pub fn make_model() -> (Model, SPState) {
     let mut m = Model::new("lab_scenario_1");
 
     let ur = m.add_resource("ur");
-    let frames: Vec<SPValue> = ["pose_1", "pose_2"].iter().map(|f|f.to_spvalue()).collect();
+    let frames: Vec<SPValue> = ["at_conv", "above_conv",
+                                "pose_1", "pose_2"].iter().map(|f|f.to_spvalue()).collect();
     let tool_frames: Vec<SPValue> = ["tool0", "tool1"].iter().map(|f|f.to_spvalue()).collect();
-    let ur = UrRobotResource::new(m.get_resource(&ur), frames, tool_frames);
+    let mut ur = UrRobotResource::new(m.get_resource(&ur), frames, tool_frames);
 
     let gripper = m.add_resource("gripper");
     let gripper = RobotiqGripper::new(m.get_resource(&gripper));
-    let gripper_command = gripper.command.clone();
+    let gripper_measured = gripper.measured.clone();
+    let gripper_is_closing = gripper.is_closing.clone();
+    let gripper_is_opening = gripper.is_opening.clone();
 
     let plc_path = m.add_resource("plc");
     let d = vec!(0.to_spvalue(), 1.to_spvalue(), 2.to_spvalue());
@@ -40,27 +43,58 @@ pub fn make_model() -> (Model, SPState) {
     ur.run_transition(&mut m, guard2, runner_guard.clone(), "tool0", "pose_2", "move_j", 0.4, 0.3, vec![], vec![]);
 
 
+    ur.run_transition(&mut m,
+                      p!(p: est_pos == "pose_1"),
+                      Predicate::TRUE,
+                      "tool0", "above_conv", "move_j", 0.8, 0.5, vec![], vec![]);
+
+    ur.run_transition(&mut m,
+                      p!(p: est_pos == "above_conv"),
+                      Predicate::TRUE,
+                      "tool0", "pose_1", "move_j", 0.8, 0.5, vec![], vec![]);
+
+    ur.run_transition(&mut m,
+                      p!([p: est_pos == "above_conv"] &&
+                         [[p: gripper_measured == "opened"] || [p: gripper_measured == "gripping"]]),
+                      Predicate::TRUE,
+                      "tool0", "at_conv", "move_j", 0.8, 0.5, vec![], vec![]);
+
+    ur.run_transition(&mut m,
+                      p!([p: est_pos == "at_conv"]),
+                      Predicate::TRUE,
+                      "tool0", "above_conv", "move_j", 0.8, 0.5, vec![], vec![]);
+
+    // can only grip in certain positions.
+    m.add_invar(
+        "grip_at_the_right_pos",
+        &p!([p:gripper_is_closing] => [p:est_pos == "at_conv"]),
+    );
+    m.add_invar(
+        "release_at_the_right_pos",
+        &p!([p:gripper_is_opening] => [p:est_pos == "at_conv"]),
+    );
+
     // add high level ("product") state
     let op_done = m.add_product_bool("op_done");
 
-    plc.command_transition(&mut m, "start_load", p!(!p: bool_to_plc_1), runner_guard,
-                           vec![ a!(p: bool_to_plc_1)], vec![],
-                           p!([!p: bool_from_plc_2] && [p: bool_to_plc_1]), vec![a!(p: bool_from_plc_2)]);
-    let cylinder_by_sensor = m.add_product_bool("cylinder_by_sensor");
-    m.add_op(
-        "cylinder_to_sensor",
-        // operation model guard.
-        &p!(!p: cylinder_by_sensor),
-        // operation model effects.
-        &[a!(p: cylinder_by_sensor)],
-        // low level goal
-        &p!(p: bool_from_plc_2),
-        // low level actions (should not be needed)
-        &[a!(!p: bool_to_plc_1)],
-        // not auto
-        true,
-        None,
-    );
+    // plc.command_transition(&mut m, "start_load", p!(!p: bool_to_plc_1), runner_guard,
+    //                        vec![ a!(p: bool_to_plc_1)], vec![],
+    //                        p!([!p: bool_from_plc_2] && [p: bool_to_plc_1]), vec![a!(p: bool_from_plc_2)]);
+    // let cylinder_by_sensor = m.add_product_bool("cylinder_by_sensor");
+    // m.add_op(
+    //     "cylinder_to_sensor",
+    //     // operation model guard.
+    //     &p!(!p: cylinder_by_sensor),
+    //     // operation model effects.
+    //     &[a!(p: cylinder_by_sensor)],
+    //     // low level goal
+    //     &p!(p: bool_from_plc_2),
+    //     // low level actions (should not be needed)
+    //     &[a!(!p: bool_to_plc_1)],
+    //     // not auto
+    //     true,
+    //     None,
+    // );
 
 
     let _op_1_state = m.add_op(
@@ -70,11 +104,11 @@ pub fn make_model() -> (Model, SPState) {
         // operation model effects.
         &[a!(p: op_done)],
         // low level goal
-        &p!(p: est_pos == "pose_2"),
+        &p!([p: est_pos == "pose_2"] && [p:gripper_measured == "gripping"]),
         // low level actions (should not be needed)
-        &[a!(p:gripper_command = "open")],
-        // not auto
-        false,
+        &[],
+        // auto
+        true,
         None,
     );
 
@@ -85,11 +119,11 @@ pub fn make_model() -> (Model, SPState) {
         // operation model effects.
         &[a!(!p: op_done)],
         // low level goal
-        &p!(p: est_pos == "pose_1"),
+        &p!([p: est_pos == "pose_2"] && [p:gripper_measured == "opened"]),
         // low level actions (should not be needed)
-        &[a!(p:gripper_command = "close")],
-        // not auto
-        false,
+        &[],
+        // auto
+        true,
         None,
     );
 
@@ -111,12 +145,13 @@ pub fn make_model() -> (Model, SPState) {
 
     let mut initial_state = ur.initial_state.clone();
     initial_state.extend(plc.initial_state);
+    initial_state.extend(gripper.initial_state);
     initial_state.extend(SPState::new_from_values(
         &[
-            (est_pos, "pose_1".to_spvalue()),
+            // (est_pos, "pose_1".to_spvalue()),
+            (est_pos, "unknown".to_spvalue()),
             (op_done, false.to_spvalue()),
-            (cylinder_by_sensor, false.to_spvalue()),
-            (gripper_command, "open".to_spvalue()),
+            //(cylinder_by_sensor, false.to_spvalue()),
         ]
     ));
 
