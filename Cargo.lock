@@ -1031,6 +1031,7 @@ dependencies = [
 [[package]]
 name = "sp-domain"
 version = "0.1.0"
+source = "git+https://github.com/sequenceplanner/sp-rust.git?branch=runner_actions#c071632eb6e5e931cded61ef915502668ec57440"
 dependencies = [
  "peg",
  "rand",
@@ -1042,6 +1043,7 @@ dependencies = [
 [[package]]
 name = "sp-formal"
 version = "0.1.0"
+source = "git+https://github.com/sequenceplanner/sp-rust.git?branch=runner_actions#c071632eb6e5e931cded61ef915502668ec57440"
 dependencies = [
  "futures",
  "rayon",
@@ -1056,6 +1058,7 @@ dependencies = [
 [[package]]
 name = "sp-ros"
 version = "0.0.1"
+source = "git+https://github.com/sequenceplanner/sp-rust.git?branch=runner_actions#c071632eb6e5e931cded61ef915502668ec57440"
 dependencies = [
  "futures",
  "r2r",
@@ -1069,6 +1072,7 @@ dependencies = [
 [[package]]
 name = "sp-runner"
 version = "0.0.1"
+source = "git+https://github.com/sequenceplanner/sp-rust.git?branch=runner_actions#c071632eb6e5e931cded61ef915502668ec57440"
 dependencies = [
  "chrono",
  "crossbeam",

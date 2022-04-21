@@ -12,7 +12,8 @@ include(r2r_cargo.cmake)
 # put ros package dependencies here.
 r2r_cargo(std_msgs
           sp_msgs
-          ur_tools_msgs
+          ur_controller_msgs
+          scene_manipulation_msgs
           robotiq_2f_msgs
           rcl
           rcl_action             # as of r2r 0.1.0, we also need the action api

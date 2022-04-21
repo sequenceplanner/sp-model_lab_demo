@@ -72,7 +72,7 @@ impl UrRobotResource {
         let action_state = resource.setup_ros_action(
             "URScriptControl",
             "/ur_script_controller",
-            "ur_tools_msgs/action/URScriptControl",
+            "ur_controller_msgs/action/URControl",
             p!(p: trigger),
             // goal variables
             &[
