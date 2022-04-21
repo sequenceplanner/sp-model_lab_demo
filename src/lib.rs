@@ -52,5 +52,5 @@ pub async fn update_sp(compiled_model: &sp_formal::CompiledModel, state: &SPStat
 
 /// fix for indention problem...
 pub fn assign(p1: &SPPath, p2: &SPPath) -> Action {
-    a!(p: p1 <- p: p2)
+    a!(p1 <- p2)
 }

@@ -36,46 +36,57 @@ pub fn make_model() -> (Model, SPState) {
     let bool_to_plc_1 = plc.bool_to_plc_1.clone();
 
     let est_pos = ur.last_visited_frame.clone();
-    let guard1 = p!([p:est_pos == "pose_2"] || [p:est_pos == "unknown"]);
-    let guard2 = p!(p:est_pos == "pose_1");
-    let runner_guard = p!(p: bool_from_plc_1);
+    let guard1 = p!([est_pos == "pose_2"] || [est_pos == "unknown"]);
+    let guard2 = p!(est_pos == "pose_1");
+    // let runner_guard = p!(bool_from_plc_1);
+    let runner_guard = Predicate::TRUE;
     ur.run_transition(&mut m, guard1, runner_guard.clone(), "tool0", "pose_1", "move_j", 0.8, 0.5, vec![], vec![]);
     ur.run_transition(&mut m, guard2, runner_guard.clone(), "tool0", "pose_2", "move_j", 0.4, 0.3, vec![], vec![]);
 
 
     ur.run_transition(&mut m,
-                      p!(p: est_pos == "pose_1"),
+                      p!(est_pos == "pose_1"),
                       Predicate::TRUE,
                       "tool0", "above_conv", "move_j", 0.8, 0.5, vec![], vec![]);
 
     ur.run_transition(&mut m,
-                      p!(p: est_pos == "above_conv"),
+                      p!(est_pos == "above_conv"),
                       Predicate::TRUE,
                       "tool0", "pose_1", "move_j", 0.8, 0.5, vec![], vec![]);
 
     ur.run_transition(&mut m,
-                      p!([p: est_pos == "above_conv"] &&
-                         [[p: gripper_measured == "opened"] || [p: gripper_measured == "gripping"]]),
+                      p!([est_pos == "above_conv"] &&
+                         [[gripper_measured == "opened"] || [gripper_measured == "gripping"]]),
                       Predicate::TRUE,
                       "tool0", "at_conv", "move_j", 0.8, 0.5, vec![], vec![]);
 
     ur.run_transition(&mut m,
-                      p!([p: est_pos == "at_conv"]),
+                      p!([est_pos == "at_conv"]),
                       Predicate::TRUE,
                       "tool0", "above_conv", "move_j", 0.8, 0.5, vec![], vec![]);
 
     // can only grip in certain positions.
     m.add_invar(
         "grip_at_the_right_pos",
-        &p!([p:gripper_is_closing] => [p:est_pos == "at_conv"]),
+        &p!([gripper_is_closing] => [est_pos == "at_conv"]),
     );
     m.add_invar(
         "release_at_the_right_pos",
-        &p!([p:gripper_is_opening] => [p:est_pos == "at_conv"]),
+        &p!([gripper_is_opening] => [est_pos == "at_conv"]),
     );
 
     // add high level ("product") state
     let op_done = m.add_product_bool("op_done");
+
+    let buffer1 = m.add_product_bool("buffer1");
+    let buffer2 = m.add_product_bool("buffer2");
+    let buffer3 = m.add_product_bool("buffer3");
+    let buffer4 = m.add_product_bool("buffer4");
+    let buffer5 = m.add_product_bool("buffer5");
+    let buffer6 = m.add_product_bool("buffer6");
+    let buffer7 = m.add_product_bool("buffer7");
+    let buffer8 = m.add_product_bool("buffer8");
+    let buffer9 = m.add_product_bool("buffer9");
 
     // plc.command_transition(&mut m, "start_load", p!(!p: bool_to_plc_1), runner_guard,
     //                        vec![ a!(p: bool_to_plc_1)], vec![],
@@ -100,11 +111,11 @@ pub fn make_model() -> (Model, SPState) {
     let _op_1_state = m.add_op(
         "do_operation_1",
         // operation model guard.
-        &p!(!p: op_done),
+        &p!(!op_done),
         // operation model effects.
-        &[a!(p: op_done)],
+        &[a!(op_done)],
         // low level goal
-        &p!([p: est_pos == "pose_2"] && [p:gripper_measured == "gripping"]),
+        &p!([est_pos == "pose_2"] && [gripper_measured == "gripping"]),
         // low level actions (should not be needed)
         &[],
         // auto
@@ -115,11 +126,11 @@ pub fn make_model() -> (Model, SPState) {
     let _op_2_state = m.add_op(
         "do_operation_2",
         // operation model guard.
-        &p!(p: op_done),
+        &p!(op_done),
         // operation model effects.
-        &[a!(!p: op_done)],
+        &[a!(!op_done)],
         // low level goal
-        &p!([p: est_pos == "pose_2"] && [p:gripper_measured == "opened"]),
+        &p!([est_pos == "pose_2"] && [gripper_measured == "opened"]),
         // low level actions (should not be needed)
         &[],
         // auto
@@ -130,16 +141,25 @@ pub fn make_model() -> (Model, SPState) {
     m.add_intention(
         "back",
         true,
-        &p!(!p: op_done),
-        &p!(p: op_done),
+        &p!(!op_done),
+        &p!(op_done),
         &[],
     );
 
     m.add_intention(
         "forth",
         true,
-        &p!(p: op_done),
-        &p!(!p: op_done),
+        &p!(op_done),
+        &p!(!op_done),
+        &[],
+    );
+
+    // this is updated by the gui.
+    m.add_intention(
+        "test_intention",
+        false,
+        &Predicate::FALSE,
+        &Predicate::FALSE,
         &[],
     );
 
@@ -151,6 +171,15 @@ pub fn make_model() -> (Model, SPState) {
             // (est_pos, "pose_1".to_spvalue()),
             (est_pos, "unknown".to_spvalue()),
             (op_done, false.to_spvalue()),
+            (buffer1, false.to_spvalue()),
+            (buffer2, false.to_spvalue()),
+            (buffer3, false.to_spvalue()),
+            (buffer4, false.to_spvalue()),
+            (buffer5, false.to_spvalue()),
+            (buffer6, false.to_spvalue()),
+            (buffer7, false.to_spvalue()),
+            (buffer8, false.to_spvalue()),
+            (buffer9, false.to_spvalue()),
             //(cylinder_by_sensor, false.to_spvalue()),
         ]
     ));
@@ -185,5 +214,21 @@ mod test {
         // println!("{:#?}", m);
 
         sp_formal::generate_mc_problems(&m);
+    }
+
+    #[test]
+    fn plan() {
+        let (m, s) = make_model();
+        let buffer1 = SPPath::from_string("lab_scenario1/product_state/buffer1");
+        let goal = [(p!(buffer1), None)];
+        let ts_model = TransitionSystemModel::from(&m);
+        let plan = sp_formal::planning::plan(&ts_model, &goal, &s, 10);
+        match plan {
+            Err(e) => {
+                println!("{}",e);
+                assert!(false);
+            },
+            Ok(p) => assert!(p.plan_found),
+        };
     }
 }

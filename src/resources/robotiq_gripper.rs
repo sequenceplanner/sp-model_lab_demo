@@ -37,13 +37,13 @@ impl RobotiqGripper {
             "robotiq_2f_open",
             "/robotiq_2f_open",
             "std_srvs/srv/Trigger",
-            p!(p: open_trigger), &[], &[]);
+            p!(open_trigger), &[], &[]);
 
         let close_service = r.setup_ros_service(
             "robotiq_2f_close",
             "/robotiq_2f_close",
             "std_srvs/srv/Trigger",
-            p!(p: close_trigger), &[], &[]);
+            p!(close_trigger), &[], &[]);
 
         r.setup_ros_incoming("measured", "/robotiq_2f_measured",
                                     MessageType::Ros("robotiq_2f_msgs/msg/MeasuredState".into()),
@@ -53,60 +53,60 @@ impl RobotiqGripper {
 
         r.add_transition(Transition::new(
             &format!("{}_open", &r.path().leaf()),
-            p!([p:open_service == "ok"] && [!p: open_trigger] && [p: measured != "opened"]),
+            p!([open_service == "ok"] && [!open_trigger] && [measured != "opened"]),
             Predicate::TRUE,
-            vec![a!(p:open_trigger)],
+            vec![a!(open_trigger)],
             vec![],
             TransitionType::Controlled));
 
         r.add_transition(Transition::new(
             &format!("{}_open_done", &r.path().leaf()),
-            p!([p:open_trigger] && [p: measured != "opened"]),
+            p!([open_trigger] && [measured != "opened"]),
             Predicate::TRUE,
-            vec![a!(p: measured = "opened")],
+            vec![a!(measured <- "opened")],
             vec![],
             TransitionType::Effect));
 
         r.add_transition(Transition::new(
             &format!("{}_open_reset", &r.path().leaf()),
-            p!([p:open_trigger] && [p: measured == "opened"]),
+            p!([open_trigger] && [measured == "opened"]),
             Predicate::TRUE,
-            vec![a!(!p: open_trigger)],
+            vec![a!(!open_trigger)],
             vec![],
             TransitionType::Auto));
 
         r.add_transition(Transition::new(
             &format!("{}_close", &r.path().leaf()),
-            p!([p:close_service == "ok"] && [!p: close_trigger] && [p: measured == "opened"]),
+            p!([close_service == "ok"] && [!close_trigger] && [measured == "opened"]),
             Predicate::TRUE,
-            vec![a!(p:close_trigger)],
+            vec![a!(close_trigger)],
             vec![],
             TransitionType::Controlled));
 
         r.add_transition(Transition::new(
             &format!("{}_close_done", &r.path().leaf()),
-            p!([p:close_trigger] && [p: measured != "gripping"] && [p: measured != "closed"]),
+            p!([close_trigger] && [measured != "gripping"] && [measured != "closed"]),
             Predicate::TRUE,
-            vec![a!(p: measured = "gripping")],
+            vec![a!(measured <- "gripping")],
             vec![],
             TransitionType::Effect));
 
         r.add_transition(Transition::new(
             &format!("{}_close_reset", &r.path().leaf()),
-            p!([p:close_trigger] && [[p: measured == "gripping"] || [p: measured == "closed"]]),
+            p!([close_trigger] && [[measured == "gripping"] || [measured == "closed"]]),
             Predicate::TRUE,
-            vec![a!(!p: close_trigger)],
+            vec![a!(!close_trigger)],
             vec![],
             TransitionType::Auto));
 
 
-        let is_closing = Variable::new_predicate("is_closing", p!([p:close_trigger] &&
-                                                                  [p: measured != "closed"] &&
-                                                                  [p: measured != "gripping"]));
+        let is_closing = Variable::new_predicate("is_closing", p!([close_trigger] &&
+                                                                  [measured != "closed"] &&
+                                                                  [measured != "gripping"]));
         let is_closing = r.add_variable(is_closing);
 
-        let is_opening = Variable::new_predicate("is_opening", p!([p:open_trigger] &&
-                                                                  [p: measured != "opened"]));
+        let is_opening = Variable::new_predicate("is_opening", p!([open_trigger] &&
+                                                                  [measured != "opened"]));
         let is_opening = r.add_variable(is_opening);
 
         let initial_state = SPState::new_from_values(

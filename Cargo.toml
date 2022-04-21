@@ -5,9 +5,9 @@ authors = ["Martin Dahl <martin.dahl@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-sp-domain = { git = "https://github.com/sequenceplanner/sp-rust.git", branch = "runner_actions"}
-sp-formal = { git = "https://github.com/sequenceplanner/sp-rust.git", branch = "runner_actions"}
-sp-runner = { git = "https://github.com/sequenceplanner/sp-rust.git", branch = "runner_actions"}
+sp-domain = { git = "https://github.com/sequenceplanner/sp-rust.git", branch = "improved_macros"}
+sp-formal = { git = "https://github.com/sequenceplanner/sp-rust.git", branch = "improved_macros"}
+sp-runner = { git = "https://github.com/sequenceplanner/sp-rust.git", branch = "improved_macros"}
 # sp-domain = { path = "/Users/martin/sp/sp-rust/sp-domain"}
 # sp-formal = { path = "/Users/martin/sp/sp-rust/sp-formal"}
 # sp-runner = { path = "/Users/martin/sp/sp-rust/sp-runner"}

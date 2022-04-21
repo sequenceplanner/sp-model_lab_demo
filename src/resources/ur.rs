@@ -70,10 +70,10 @@ impl UrRobotResource {
         ));
 
         let action_state = resource.setup_ros_action(
-            "URScriptControl",
-            "/ur_script_controller",
+            "URControl",
+            "/ur_control",
             "ur_controller_msgs/action/URControl",
-            p!(p: trigger),
+            p!(trigger),
             // goal variables
             &[
                 MessageVariable::new(&command, "command"),
@@ -81,8 +81,8 @@ impl UrRobotResource {
                 MessageVariable::new(&velocity_scaling, "velocity_scaling"),
                 MessageVariable::new(&acceleration, "acceleration"),
                 MessageVariable::new(&velocity, "velocity"),
-                MessageVariable::new(&goal_feature_name, "goal_feature_name"),
-                MessageVariable::new(&tcp_name, "tcp_name"),
+                MessageVariable::new(&goal_feature_name, "goal_feature_id"),
+                MessageVariable::new(&tcp_name, "tcp_id"),
             ],
             &[
                 // feedback.
@@ -112,9 +112,9 @@ impl UrRobotResource {
         resource.add_transition(
             Transition::new(
                 &format!("{}_runner_finish_ok", name),
-                p!([!p: done] && [!p: error] && [p: trigger] && [p: action_state == "succeeded"]),
+                p!([!done] && [!error] && [trigger] && [action_state == "succeeded"]),
                 Predicate::TRUE,
-                vec![ a!( p: done)],
+                vec![ a!(done)],
                 vec![],
                 TransitionType::Runner
             )
@@ -123,9 +123,9 @@ impl UrRobotResource {
         resource.add_transition(
             Transition::new(
                 &format!("{}_finish_ok", name),
-                p!([!p: done] && [!p: error] && [p: trigger]),
+                p!([!done] && [!error] && [trigger]),
                 Predicate::TRUE,
-                vec![ a!( p: done)],
+                vec![ a!(done)],
                 vec![],
                 TransitionType::Effect
             )
@@ -135,12 +135,12 @@ impl UrRobotResource {
         resource.add_transition(
             Transition::new(
                 &format!("{}_runner_finish_error", name),
-                p!([!p: done] && [!p: error] && [p: trigger] &&
-                   [[p: action_state == "timeout"] ||
-                    [p: action_state == "aborted"] ||
-                    [p: action_state == "canceled"]]),
+                p!([!done] && [!error] && [trigger] &&
+                   [[action_state == "timeout"] ||
+                    [action_state == "aborted"] ||
+                    [action_state == "canceled"]]),
                 Predicate::TRUE,
-                vec![ a!( p: error)],
+                vec![ a!(error)],
                 vec![],
                 TransitionType::Runner
             )
@@ -163,9 +163,9 @@ impl UrRobotResource {
         resource.add_transition(
             Transition::new(
                 &format!("{}_runner_reset", name),
-                p!([!p: trigger] && [p: action_state == "ok"] && [[p: done] || [p: error]]),
+                p!([!trigger] && [action_state == "ok"] && [[done] || [error]]),
                 Predicate::TRUE,
-                vec![a!( !p: done), a!( !p: error)],
+                vec![a!(!done), a!(!error)],
                 vec![],
                 TransitionType::Runner
             )
@@ -174,9 +174,9 @@ impl UrRobotResource {
         resource.add_transition(
             Transition::new(
                 &format!("{}_reset", name),
-                p!([!p: trigger] && [[p: done] || [p: error]]),
+                p!([!trigger] && [[done] || [error]]),
                 Predicate::TRUE,
-                vec![a!( !p: done), a!( !p: error)],
+                vec![a!(!done), a!(!error)],
                 vec![],
                 TransitionType::Effect
             )
@@ -256,29 +256,29 @@ impl UrRobotResource {
         let trigger = &self.trigger;
         let last_visited_frame = &self.last_visited_frame;
         let last_visited_with_tcp = &self.last_visited_with_tcp;
-        let new_guard = p!([!p: trigger] && [!p:done] && [!p:error] && [pp: guard]);
+        let new_guard = p!([!trigger] && [!done] && [!error] && [p: guard]);
         r.add_transition(Transition::new(
             &format!("{}_{}_to_{}_{}", &r.path().leaf(), tcp_frame, goal_frame, self.t_index),
             new_guard,
             runner_guard,
             vec![ // formal model cares about these
-                a!(p:tcp_name = tcp_frame),
-                a!(p:goal_feature_name = goal_frame),
-                a!(p:trigger),
+                a!(tcp_name <- tcp_frame),
+                a!(goal_feature_name <- goal_frame),
+                a!(trigger),
             ],
             vec![  // formal model dont care about these
-                a!(p:c = command),
-                a!(p:velocity_path = velocity),
-                a!(p:acceleration_path = acceleration),
+                a!(c <- command),
+                a!(velocity_path <- velocity),
+                a!(acceleration_path <- acceleration),
             ],
             TransitionType::Controlled));
 
-        let guard_done = p!([p: trigger] && [p:done] &&
-                            [p: tcp_name == tcp_frame] &&
-                            [p: goal_feature_name == goal_frame]);
-        action_when_done.push(a!(!p:trigger)); // reset
-        action_when_done.push(a!(p:last_visited_frame = goal_frame)); // save visited
-        action_when_done.push(a!(p:last_visited_with_tcp = tcp_frame)); // save visited
+        let guard_done = p!([trigger] && [done] &&
+                            [tcp_name == tcp_frame] &&
+                            [goal_feature_name == goal_frame]);
+        action_when_done.push(a!(!trigger)); // reset
+        action_when_done.push(a!(last_visited_frame <- goal_frame)); // save visited
+        action_when_done.push(a!(last_visited_with_tcp <- tcp_frame)); // save visited
 
         r.add_transition(Transition::new(
             &format!("{}_{}_to_{}_{}_done", &r.path().leaf(), tcp_frame, goal_frame, self.t_index),
@@ -289,12 +289,12 @@ impl UrRobotResource {
             TransitionType::Auto));
 
         // handle errors. perhaps this transition should be runner by default?
-        let guard_error = p!([p: trigger] && [p:error] &&
-                             [p: tcp_name == tcp_frame] &&
-                             [p: goal_feature_name == goal_frame]);
-        action_when_error.push(a!(!p:trigger)); // reset
-        action_when_error.push(a!(p:last_visited_frame = "unknown")); // reset visited
-        action_when_error.push(a!(p:last_visited_with_tcp = "unknown")); // reset visited
+        let guard_error = p!([trigger] && [error] &&
+                             [tcp_name == tcp_frame] &&
+                             [goal_feature_name == goal_frame]);
+        action_when_error.push(a!(!trigger)); // reset
+        action_when_error.push(a!(last_visited_frame <- "unknown")); // reset visited
+        action_when_error.push(a!(last_visited_with_tcp <- "unknown")); // reset visited
 
         r.add_transition(Transition::new(
             &format!("{}_{}_to_{}_{}_error", &r.path().leaf(), tcp_frame, goal_frame, self.t_index),
