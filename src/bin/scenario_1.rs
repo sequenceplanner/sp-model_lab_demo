@@ -18,7 +18,7 @@ pub fn make_model() -> (Model, SPState) {
     let ur = m.add_resource("ur");
     let frames: Vec<SPValue> = ["at_conv", "above_conv",
                                 "pose_1", "pose_2"].iter().map(|f|f.to_spvalue()).collect();
-    let tool_frames: Vec<SPValue> = ["tool0", "tool1"].iter().map(|f|f.to_spvalue()).collect();
+    let tool_frames: Vec<SPValue> = ["robotiq_2f_tcp", "tool1"].iter().map(|f|f.to_spvalue()).collect();
     let mut ur = UrRobotResource::new(m.get_resource(&ur), frames, tool_frames);
 
     let gripper = m.add_resource("gripper");
@@ -34,32 +34,32 @@ pub fn make_model() -> (Model, SPState) {
     let guard2 = p!(est_pos == "pose_1");
     // let runner_guard = p!(plc.bool_from_plc_1);
     let runner_guard = Predicate::TRUE;
-    ur.run_transition(&mut m, guard1, runner_guard.clone(),
-                      "tool0", "pose_1", "move_j", 0.8, 0.5, vec![], vec![]);
-    ur.run_transition(&mut m, guard2, runner_guard.clone(),
-                      "tool0", "pose_2", "move_j", 0.4, 0.3, vec![], vec![]);
+    ur.create_transition(&mut m, guard1, runner_guard.clone(),
+                      "robotiq_2f_tcp", "pose_1", "move_j", 0.1, 0.3, vec![], vec![]);
+    ur.create_transition(&mut m, guard2, runner_guard.clone(),
+                      "robotiq_2f_tcp", "pose_2", "move_j", 0.1, 0.3, vec![], vec![]);
 
 
-    ur.run_transition(&mut m,
+    ur.create_transition(&mut m,
                       p!(est_pos == "pose_1"),
                       Predicate::TRUE,
-                      "tool0", "above_conv", "move_j", 0.8, 0.5, vec![], vec![]);
+                      "robotiq_2f_tcp", "above_conv", "move_j", 0.1, 0.3, vec![], vec![]);
 
-    ur.run_transition(&mut m,
+    ur.create_transition(&mut m,
                       p!(est_pos == "above_conv"),
                       Predicate::TRUE,
-                      "tool0", "pose_1", "move_j", 0.8, 0.5, vec![], vec![]);
+                      "robotiq_2f_tcp", "pose_1", "move_j", 0.1, 0.3, vec![], vec![]);
 
-    ur.run_transition(&mut m,
+    ur.create_transition(&mut m,
                       p!([est_pos == "above_conv"] &&
                          [[(gripper.measured) == "opened"] || [(gripper.measured) == "gripping"]]),
                       Predicate::TRUE,
-                      "tool0", "at_conv", "move_j", 0.8, 0.5, vec![], vec![]);
+                      "robotiq_2f_tcp", "at_conv", "move_j", 0.1, 0.3, vec![], vec![]);
 
-    ur.run_transition(&mut m,
+    ur.create_transition(&mut m,
                       p!([est_pos == "at_conv"]),
                       Predicate::TRUE,
-                      "tool0", "above_conv", "move_j", 0.8, 0.5, vec![], vec![]);
+                      "robotiq_2f_tcp", "above_conv", "move_j", 0.1, 0.3, vec![], vec![]);
 
     // can only grip in certain positions.
     m.add_invar(
@@ -137,7 +137,8 @@ pub fn make_model() -> (Model, SPState) {
     m.add_intention(
         "back",
         true,
-        &p!(!op_done),
+        // &p!(!op_done),
+        &Predicate::FALSE,
         &p!(op_done),
         &[],
     );

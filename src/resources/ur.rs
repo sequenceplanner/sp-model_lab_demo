@@ -49,10 +49,10 @@ impl UrRobotResource {
         ));
 
         let acceleration= resource.add_variable(Variable::new(
-            "request/acceleration",VariableType::Runner,SPValueType::Float32,vec!(1.0.to_spvalue()),
+            "request/acceleration",VariableType::Runner,SPValueType::Float32,vec!(0.1.to_spvalue()),
         ));
         let velocity= resource.add_variable(Variable::new(
-            "request/velocity",VariableType::Runner,SPValueType::Float32,vec!(1.0.to_spvalue()),
+            "request/velocity",VariableType::Runner,SPValueType::Float32,vec!(0.1.to_spvalue()),
         ));
         let goal_feature_name= resource.add_variable(Variable::new(
             "request/goal_feature_name",VariableType::Command,SPValueType::String, frame_domain.clone(),
@@ -201,9 +201,9 @@ impl UrRobotResource {
                 (tcp_name.clone(), tool_frame_domain[1].clone()),
                 (last_visited_frame.clone(), frame_domain[0].clone()),
                 (last_visited_with_tcp.clone(), tool_frame_domain[0].clone()),
-                (velocity_scaling, 0.5.to_spvalue()),
+                (velocity_scaling, 0.1.to_spvalue()),
                 (velocity.clone(), 0.1.to_spvalue()),
-                (acceleration_scaling, 0.5.to_spvalue()),
+                (acceleration_scaling, 0.1.to_spvalue()),
                 (acceleration.clone(), 0.1.to_spvalue()),
                 (trigger.clone(), false.to_spvalue()),
                 (done.clone(), false.to_spvalue()),
@@ -231,7 +231,7 @@ impl UrRobotResource {
         }
     }
 
-    pub fn run_transition(
+    pub fn create_transition(
         &mut self,
         model: &mut Model,
         guard: Predicate,
