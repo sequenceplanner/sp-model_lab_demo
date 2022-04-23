@@ -231,7 +231,7 @@ impl UrRobotResource {
         }
     }
 
-    pub fn create_transition(
+    pub fn define_motion(
         &mut self,
         model: &mut Model,
         guard: Predicate,

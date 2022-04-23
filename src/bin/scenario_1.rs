@@ -16,11 +16,17 @@ pub fn make_model() -> (Model, SPState) {
     let mut m = Model::new("lab_scenario_1");
 
     let ur = m.add_resource("ur");
-    let frames: Vec<SPValue> = ["at_conv", "above_conv", "pose_1", "pose_2", "pick_pos_1", "place_pos_1"]
+    let mut frames: Vec<SPValue> = ["home_pose", "above_conv", "at_conv", "above_locked_aruco"]
         .iter()
         .map(|f| f.to_spvalue())
         .collect();
-    let tool_frames: Vec<SPValue> = ["robotiq_2f_tcp", "tool1"]
+    let buffer_frames = ["above_buffer_1", "above_buffer_2", "above_buffer_3", "above_buffer_4"];
+    frames.extend(buffer_frames
+        .iter()
+        .map(|f| f.to_spvalue())
+        .collect::<Vec<_>>());
+
+    let tool_frames: Vec<SPValue> = ["robotiq_2f_tcp", "tool0"]
         .iter()
         .map(|f| f.to_spvalue())
         .collect();
@@ -38,169 +44,63 @@ pub fn make_model() -> (Model, SPState) {
     let plc = PLCResource::new(m.get_resource(&plc_path), domain.clone(), domain.clone());
 
     let est_pos = ur.last_visited_frame.clone();
-    let guard1 = p!([est_pos == "pose_2"] || [est_pos == "unknown"]);
-    let guard2 = p!(est_pos == "pose_1");
-    let guard3 = p!(est_pos == "pose_2");
-    // let runner_guard = p!(plc.bool_from_plc_1);
-    let runner_guard = Predicate::TRUE;
-    ur.create_transition(
-        &mut m,
-        guard1,
-        runner_guard.clone(),
-        "robotiq_2f_tcp",
-        "pose_1",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
 
-    ur.create_transition(
-        &mut m,
-        p!(est_pos == "pick_pos_1"),
-        runner_guard.clone(),
-        "robotiq_2f_tcp",
-        "pose_1",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
+    // ur move home to above_conv
+    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
+                         "robotiq_2f_tcp", "above_conv", "move_j", 0.1, 0.3, vec![], vec![]);
 
-    ur.create_transition(
-        &mut m,
-        p!(est_pos == "place_pos_1"),
-        runner_guard.clone(),
-        "robotiq_2f_tcp",
-        "pose_2",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
+    // ur move above_conv to home
+    ur.define_motion(&mut m, p!(est_pos == "above_conv"), Predicate::TRUE,
+                     "robotiq_2f_tcp", "home_pose", "move_j", 0.1, 0.3, vec![], vec![]);
 
-    ur.create_transition(
-        &mut m,
-        p!(est_pos == "pose_2"),
-        runner_guard.clone(),
-        "robotiq_2f_tcp",
-        "place_pos_1",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
+    // ur move above_conv to at_conv
+    ur.define_motion(&mut m, p!(est_pos == "above_conv"),
+                     Predicate::TRUE,
+                     "robotiq_2f_tcp", "at_conv", "move_j", 0.1, 0.3, vec![], vec![]);
 
-    ur.create_transition(
-        &mut m,
-        guard2,
-        runner_guard.clone(),
-        "robotiq_2f_tcp",
-        "pose_2",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
+    // ur move home to above_locked_aruco
+    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
+                     "robotiq_2f_tcp", "above_locked_aruco", "move_j", 0.1, 0.3, vec![], vec![]);
 
-    ur.create_transition(
-        &mut m,
-        guard3,
-        runner_guard.clone(),
-        "robotiq_2f_tcp",
-        "pick_pos_1",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
+    // ur move above_locked_aruco to home
+    ur.define_motion(&mut m, p!(est_pos == "above_locked_aruco"), Predicate::TRUE,
+                     "robotiq_2f_tcp", "home_pose", "move_j", 0.1, 0.3, vec![], vec![]);
 
-    ur.create_transition(
-        &mut m,
-        p!(est_pos == "pose_1"),
-        Predicate::TRUE,
-        "robotiq_2f_tcp",
-        "above_conv",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
-
-    ur.create_transition(
-        &mut m,
-        p!(est_pos == "above_conv"),
-        Predicate::TRUE,
-        "robotiq_2f_tcp",
-        "pose_1",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
-
-    ur.create_transition(
-        &mut m,
-        p!([est_pos == "above_conv"]
-            && [[(gripper.measured) == "opened"] || [(gripper.measured) == "gripping"]]),
-        Predicate::TRUE,
-        "robotiq_2f_tcp",
-        "at_conv",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
-
-    ur.create_transition(
-        &mut m,
-        p!([est_pos == "at_conv"]),
-        Predicate::TRUE,
-        "robotiq_2f_tcp",
-        "above_conv",
-        "move_j",
-        0.1,
-        0.3,
-        vec![],
-        vec![],
-    );
+    for bf in &buffer_frames {
+        ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
+                         "robotiq_2f_tcp", bf, "move_j", 0.1, 0.3, vec![], vec![]);
+        ur.define_motion(&mut m, p!(est_pos == bf), Predicate::TRUE,
+                         "robotiq_2f_tcp", "home_pose", "move_j", 0.1, 0.3, vec![], vec![]);
+    }
 
     // can only grip in certain positions.
     m.add_invar(
         "grip_at_the_right_pos",
-        &p!([gripper.is_closing] => [est_pos == "pick_pos_1"]),
+        &p!([gripper.is_closing] => [est_pos == "at_conv"]),
     );
-    // m.add_invar(
-    //     "release_at_the_right_pos",
-    //     &p!([gripper.is_opening] => [est_pos == "at_conv"]),
-    // );
+    m.add_invar(
+        "release_at_the_right_pos",
+        // todo: add all positions.
+        &p!([gripper.is_opening] => [[est_pos == "above_buffer_1"] || [est_pos == "above_buffer_2"]]),
+    );
 
     // add high level ("product") state
-    let op_done = m.add_product_bool("op_done");
 
-    let buffer1 = m.add_product_bool("buffer1");
-    let buffer2 = m.add_product_bool("buffer2");
-    let buffer3 = m.add_product_bool("buffer3");
-    let buffer4 = m.add_product_bool("buffer4");
-    let buffer5 = m.add_product_bool("buffer5");
-    let buffer6 = m.add_product_bool("buffer6");
-    let buffer7 = m.add_product_bool("buffer7");
-    let buffer8 = m.add_product_bool("buffer8");
-    let buffer9 = m.add_product_bool("buffer9");
+    // buffer locations on paper
+    let buffers: Vec<SPPath> = (1..=4).map(|i: i32| {
+        m.add_product_bool(&format!("buffer_{}",i))
+    }).collect();
 
-    plc.command_transition(&mut m, "start_load", p!(!plc.bool_to_plc_1), runner_guard,
-                           vec![ a!(plc.bool_to_plc_1)], vec![],
-                           p!([!plc.bool_from_plc_2] && [plc.bool_to_plc_1]), vec![a!(plc.bool_from_plc_2)]);
+    // cylinder by end of conveyor
     let cylinder_by_sensor = m.add_product_bool("cylinder_by_sensor");
+
+    // cylinder in gripper
+    let cylinder_in_gripper = m.add_product_bool("cylinder_in_gripper");
+
+    plc.command_transition(&mut m, "start_load", p!(!plc.bool_to_plc_1), Predicate::TRUE,
+                           vec![ a!(plc.bool_to_plc_1)], vec![],
+                           p!([!plc.bool_from_plc_2] && [plc.bool_to_plc_1]),
+                           vec![a!(plc.bool_from_plc_2)]);
     m.add_op(
         "cylinder_to_sensor",
         // operation model guard.
@@ -209,120 +109,61 @@ pub fn make_model() -> (Model, SPState) {
         &[a!(cylinder_by_sensor)],
         // low level goal
         &p!(plc.bool_from_plc_2),
-        // low level actions (should not be needed)
+        // low level actions (usually not be needed)
         &[a!(!plc.bool_to_plc_1)],
-        // not auto
-        true,
+        // auto
+        false,
         None,
     );
-
-    let picked = m.add_product_bool("picked");
-    let placed = m.add_product_bool("placed");
 
     let _pick_op = m.add_op(
         "pick",
-        &p!(!picked),
-        &[a!(picked)],
-        &p!([est_pos == "pick_pos_1"] && [(gripper.measured) == "gripping"]),
+        &p!(!cylinder_in_gripper),
+        &[a!(cylinder_in_gripper)],
+        &p!([est_pos == "at_conv"] && [(gripper.measured) == "gripping"]),
         &[],
         true,
         None,
     );
 
-    let _pick_op = m.add_op(
-        "place",
-        &p!([picked] && [!placed]),
-        &[a!(!picked), a!(placed)],
-        &p!([est_pos == "place_pos_1"] && [(gripper.measured) == "opened"]),
-        &[],
-        true,
-        None,
-    );
+    for b in &buffers {
+        let op_name = format!("place_at_{}", b.leaf());
+        let frame_name = format!("above_{}", b.leaf());
+        let _place_op = m.add_op(
+            &op_name,
+            &p!(cylinder_in_gripper),
+            &[a!(!cylinder_in_gripper), a!(b)],
+            &p!([est_pos == frame_name] && [(gripper.measured) == "opened"]),
+            &[],
+            false,
+            None,
+        );
+    }
 
-    // let _op_1_state = m.add_op(
-    //     "do_operation_1",
-    //     // operation model guard.
-    //     &p!(!op_done),
-    //     // operation model effects.
-    //     &[a!(op_done)],
-    //     // low level goal
-    //     &p!([est_pos == "pose_2"] && [(gripper.measured) == "closed"]),
-    //     // low level actions (should not be needed)
-    //     &[],
-    //     // auto
-    //     true,
-    //     None,
-    // );
-
-    // let _op_2_state = m.add_op(
-    //     "do_operation_2",
-    //     // operation model guard.
-    //     &p!(op_done),
-    //     // operation model effects.
-    //     &[a!(!op_done)],
-    //     // low level goal
-    //     &p!([est_pos == "pose_1"] && [(gripper.measured) == "opened"]),
-    //     // low level actions (should not be needed)
-    //     &[],
-    //     // auto
-    //     true,
-    //     None,
-    // );
-
-    // m.add_intention(
-    //     "back",
-    //     true,
-    //     // &p!(!op_done),
-    //     &Predicate::FALSE,
-    //     &p!(op_done),
-    //     &[],
-    // );
-
-    // pre can ref anything,
-    // post can only ref the goals of the operations
-
-    // m.add_intention("forth", true, &p!(op_done), &p!(!op_done), &[]);
-
+    // This intention is updated by the GUI.
     m.add_intention(
-        "have_cylinder",
+        "test_intention",
         false,
-        // &p!(!op_done),
         &Predicate::FALSE,
-        &p!(placed),
+        &Predicate::FALSE,
         &[],
     );
-
-    // this is updated by the gui.
-    // m.add_intention(
-    //     "test_intention",
-    //     false,
-    //     &Predicate::FALSE,
-    //     &Predicate::FALSE,
-    //     &[],
-    // );
 
     let mut initial_state = ur.initial_state.clone();
     initial_state.extend(plc.initial_state);
     initial_state.extend(gripper.initial_state);
     initial_state.extend(frame_locker.initial_state);
+
+    let buffer_states: Vec<_> =
+        buffers.iter().map(|b| (b.clone(), false.to_spvalue())).collect();
+    initial_state.extend(SPState::new_from_values(&buffer_states));
+
     initial_state.extend(SPState::new_from_values(
         &[
             // (est_pos, "pose_1".to_spvalue()),
             (est_pos, "unknown".to_spvalue()),
-            (op_done, false.to_spvalue()),
-            (picked, false.to_spvalue()),
-            (placed, false.to_spvalue()),
-            (buffer1, false.to_spvalue()),
-            (buffer2, false.to_spvalue()),
-            (buffer3, false.to_spvalue()),
-            (buffer4, false.to_spvalue()),
-            (buffer5, false.to_spvalue()),
-            (buffer6, false.to_spvalue()),
-            (buffer7, false.to_spvalue()),
-            (buffer8, false.to_spvalue()),
-            (buffer9, false.to_spvalue()),
-            (cylinder_by_sensor, false.to_spvalue())
-            //(cylinder_by_sensor, false.to_spvalue()),
+            (cylinder_by_sensor, false.to_spvalue()),
+            (cylinder_in_gripper, false.to_spvalue()),
         ]
     ));
 
