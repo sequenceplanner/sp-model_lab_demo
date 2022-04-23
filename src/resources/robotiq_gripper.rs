@@ -84,12 +84,20 @@ impl RobotiqGripper {
             TransitionType::Controlled));
 
         r.add_transition(Transition::new(
-            &format!("{}_close_done", &r.path().leaf()),
+            &format!("{}_close_empty_done", &r.path().leaf()),
             p!([close_trigger] && [measured != "gripping"] && [measured != "closed"]),
             Predicate::TRUE,
-            vec![a!(measured <- "gripping")],
+            vec![a!(measured <- "closed")],
             vec![],
             TransitionType::Effect));
+
+        r.add_transition(Transition::new(
+                &format!("{}_close_gripping_done", &r.path().leaf()),
+                p!([close_trigger] && [measured != "gripping"] && [measured != "closed"]),
+                Predicate::TRUE,
+                vec![a!(measured <- "gripping")],
+                vec![],
+                TransitionType::Effect));
 
         r.add_transition(Transition::new(
             &format!("{}_close_reset", &r.path().leaf()),
