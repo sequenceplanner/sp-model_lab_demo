@@ -1031,7 +1031,6 @@ dependencies = [
 [[package]]
 name = "sp-domain"
 version = "0.1.0"
-source = "git+https://github.com/sequenceplanner/sp-rust.git?branch=improved_macros#50c4e0b0142ebec95ec184d98d3eb5622dd92821"
 dependencies = [
  "peg",
  "rand",
@@ -1043,7 +1042,6 @@ dependencies = [
 [[package]]
 name = "sp-formal"
 version = "0.1.0"
-source = "git+https://github.com/sequenceplanner/sp-rust.git?branch=improved_macros#50c4e0b0142ebec95ec184d98d3eb5622dd92821"
 dependencies = [
  "futures",
  "rayon",
@@ -1058,7 +1056,6 @@ dependencies = [
 [[package]]
 name = "sp-ros"
 version = "0.0.1"
-source = "git+https://github.com/sequenceplanner/sp-rust.git?branch=improved_macros#50c4e0b0142ebec95ec184d98d3eb5622dd92821"
 dependencies = [
  "futures",
  "r2r",
@@ -1072,7 +1069,6 @@ dependencies = [
 [[package]]
 name = "sp-runner"
 version = "0.0.1"
-source = "git+https://github.com/sequenceplanner/sp-rust.git?branch=improved_macros#50c4e0b0142ebec95ec184d98d3eb5622dd92821"
 dependencies = [
  "chrono",
  "crossbeam",

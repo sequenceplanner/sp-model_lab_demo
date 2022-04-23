@@ -3,6 +3,7 @@ use sp_runner::*;
 use sp_model::resources::ur::UrRobotResource;
 use sp_model::resources::plc::PLCResource;
 use sp_model::resources::robotiq_gripper::RobotiqGripper;
+use sp_model::resources::frame_locker::FrameLocker;
 
 // for convenience we just launch within this binary.
 #[tokio::main]
@@ -23,6 +24,9 @@ pub fn make_model() -> (Model, SPState) {
 
     let gripper = m.add_resource("gripper");
     let gripper = RobotiqGripper::new(m.get_resource(&gripper));
+
+    let frame_locker = m.add_resource("frame_locker");
+    let frame_locker = FrameLocker::new(m.get_resource(&frame_locker));
 
     let plc_path = m.add_resource("plc");
     let d = vec!(0.to_spvalue(), 1.to_spvalue(), 2.to_spvalue());
@@ -146,7 +150,7 @@ pub fn make_model() -> (Model, SPState) {
     m.add_intention(
         "forth",
         true,
-        &p!(op_done),
+        &Predicate::FALSE, // &p!(op_done),
         &p!(!op_done),
         &[],
     );
@@ -163,6 +167,7 @@ pub fn make_model() -> (Model, SPState) {
     let mut initial_state = ur.initial_state.clone();
     initial_state.extend(plc.initial_state);
     initial_state.extend(gripper.initial_state);
+    initial_state.extend(frame_locker.initial_state);
     initial_state.extend(SPState::new_from_values(
         &[
             // (est_pos, "pose_1".to_spvalue()),
