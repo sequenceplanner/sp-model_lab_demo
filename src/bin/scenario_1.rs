@@ -137,7 +137,8 @@ pub fn make_model() -> (Model, SPState) {
 
 
     // PLC operations.
-    m.add_transition(Transition::new("start_load", p!(!plc.bool_to_plc_1), Predicate::TRUE,
+    m.add_transition(Transition::new("start_load", p!(
+        [!plc.bool_to_plc_1] && [est_pos != "pickdown"]), Predicate::TRUE,
                                 vec![ a!(plc.bool_to_plc_1)], vec![], TransitionType::Controlled));
     m.add_transition(Transition::new("finish_load",
                                      p!([!plc.bool_from_plc_1] && [plc.bool_to_plc_1]), Predicate::TRUE,
