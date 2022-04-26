@@ -1,6 +1,5 @@
 use sp_domain::*;
 use sp_model::resources::plc::PLCResource;
-use sp_model::resources::robotiq_gripper::RobotiqGripper;
 use sp_model::resources::frame_locker::FrameLocker;
 use sp_model::resources::ur::UrRobotResource;
 use sp_runner::*;
@@ -38,11 +37,15 @@ pub fn make_model() -> (Model, SPState) {
     // cylinder in gripper
     let cylinder_in_gripper = m.add_product_bool("cylinder_in_gripper");
 
+    // cylinder on table
+    let cylinder_on_table = m.add_product_bool("cylinder_on_table");
+
     let ur = m.add_resource("ur");
     let mut frames: Vec<SPValue> = ["home_pose",
                                     "pickup",
                                     "pickdown",
                                     "placedown",
+                                    "above_aruco_locked",
                                     "find_aruco_1",
                                     "find_aruco_2",]
         .iter()
@@ -53,20 +56,17 @@ pub fn make_model() -> (Model, SPState) {
         .map(|f| f.at_frame_name.to_spvalue())
         .collect::<Vec<_>>());
 
-    let tool_frames: Vec<SPValue> = ["robotiq_2f_tcp", "tool0"]
+    let tool_frames: Vec<SPValue> = ["suction_cup_1", "tool0"]
         .iter()
         .map(|f| f.to_spvalue())
         .collect();
     let mut ur = UrRobotResource::new(m.get_resource(&ur), frames, tool_frames);
 
-    let gripper = m.add_resource("gripper");
-    let gripper = RobotiqGripper::new(m.get_resource(&gripper));
-
     let frame_locker = m.add_resource("frame_locker");
     let frame_locker = FrameLocker::new(m.get_resource(&frame_locker));
 
     let plc_path = m.add_resource("plc");
-    let d = vec![0.to_spvalue(), 1.to_spvalue(), 2.to_spvalue()];
+    let d: Vec<SPValue> = vec![(0 as usize).to_spvalue(), (1 as usize).to_spvalue(), (2 as usize).to_spvalue()];
     let domain = [d.clone(), d.clone(), d.clone(), d.clone(), d.clone()];
     let plc = PLCResource::new(m.get_resource(&plc_path), domain.clone(), domain.clone());
 
@@ -74,66 +74,73 @@ pub fn make_model() -> (Model, SPState) {
 
     // ur move from unknown to home. may be dangerous.
     ur.define_motion(&mut m, p!(est_pos == "unknown"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move home to pickup
     ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
-                         "robotiq_2f_tcp", "pickup", "move_j", 0.4, 0.3, vec![], vec![]);
+                         "suction_cup_1", "pickup", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move pickup to home
     ur.define_motion(&mut m, p!(est_pos == "pickup"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move pickup to pickdown
     ur.define_motion(&mut m, p!(est_pos == "pickup"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "pickdown", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "pickdown", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move from pickdown back to pickup
     ur.define_motion(&mut m, p!(est_pos == "pickdown"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "pickup", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "pickup", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move from pickdown back to home_pose
     ur.define_motion(&mut m, p!(est_pos == "pickdown"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move from home to place
     ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "placedown", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "placedown", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move from place back to home_pose
     ur.define_motion(&mut m, p!(est_pos == "placedown"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
+    // ur move from place back to home_pose
+    ur.define_motion(&mut m, p!(est_pos == "above_aruco_locked"), Predicate::TRUE,
+                     "suction_cup_1", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
+
+    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
+                     "suction_cup_1", "above_aruco_locked", "move_j", 0.4, 0.3, vec![], vec![]);
 
     for bf in &buffers {
         ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
-                         "robotiq_2f_tcp", &bf.at_frame_name, "move_j", 0.4, 0.3, vec![], vec![]);
+                         "suction_cup_1", &bf.at_frame_name, "move_j", 0.4, 0.3, vec![], vec![]);
         ur.define_motion(&mut m, p!(est_pos == bf.at_frame_name), Predicate::TRUE,
-                         "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
+                         "suction_cup_1", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
     }
 
-    // can only grip in certain positions.
-    m.add_invar(
-        "grip_at_the_right_pos",
-        &p!([gripper.is_closing] => [[est_pos == "pickdown"] ||
-                                     [est_pos == "p1_down"] ||
-                                     [est_pos == "p2_down"] ||
-                                     [est_pos == "p3_down"] ||
-                                     [est_pos == "p4_down"]]),
-    );
-    m.add_invar(
-        "release_at_the_right_pos",
-        // todo: add all positions.
-        &p!([gripper.is_opening] => [[est_pos == "pickup"] ||
-                                     [est_pos == "placedown"] ||
-                                     [est_pos == "p1_down"] || [est_pos == "p2_down"] ||
-                                     [est_pos == "p3_down"] || [est_pos == "p4_down"]]),
-    );
+    ur.define_pick(&mut m, p!([est_pos == "pickup"] && [cylinder_by_sensor]), Predicate::TRUE, vec!(), vec!());
+    ur.define_place(&mut m, p!([est_pos == "above_aruco_locked"] && [cylinder_in_gripper]), Predicate::TRUE, vec!(), vec!());
+
+    // // can only grip in certain positions.
+    // m.add_invar(
+    //     "grip_at_the_right_pos",
+    //     &p!([gripper.is_closing] => [[est_pos == "pickdown"] ||
+    //                                  [est_pos == "p1_down"] ||
+    //                                  [est_pos == "p2_down"] ||
+    //                                  [est_pos == "p3_down"] ||
+    //                                  [est_pos == "p4_down"]]),
+    // );
+    // m.add_invar(
+    //     "release_at_the_right_pos",
+    //     // todo: add all positions.
+    //     &p!([gripper.is_opening] => [[est_pos == "pickup"] ||
+    //                                  [est_pos == "placedown"] ||
+    //                                  [est_pos == "p1_down"] || [est_pos == "p2_down"] ||
+    //                                  [est_pos == "p3_down"] || [est_pos == "p4_down"]]),
+    // );
 
     // m.add_invar("dont_open_gripper_after_failure",
     //             &p!([[gripper.is_opening] =>  [p:ap == t2] || [p:ap == t3] || [p:ap == leave]]] => [p:r1_gripper_part])
-
-
 
 
     // PLC operations.
@@ -181,17 +188,19 @@ pub fn make_model() -> (Model, SPState) {
         "pick_at_conv",
         &p!([!cylinder_in_gripper] && [cylinder_by_sensor]),
         &[a!(cylinder_in_gripper), a!(!cylinder_by_sensor)],
-        &p!([est_pos == "pickdown"] && [(gripper.measured) == "gripping"]),
+        &p!([est_pos == "pickdown"] && [ur.io_state_in_9]), // can we measure that the suction cup is actually holding something? yes, tool_digital_input_1 (in9)
         &[],
         true,
         None,
     );
 
+    let aruco_locked = m.add_product_bool("aruco_locked");
+
     let _place_at_conv_op = m.add_op(
-        "place_at_conv",
-        &p!([cylinder_in_gripper] && [!cylinder_by_sensor]),
-        &[a!(!cylinder_in_gripper), a!(cylinder_by_sensor)],
-        &p!([est_pos == "placedown"] && [(gripper.measured) == "opened"]),
+        "place_at_aruco",
+        &p!([cylinder_in_gripper] && [!cylinder_by_sensor] && [aruco_locked]),
+        &[a!(!cylinder_in_gripper), a!(cylinder_on_table)],
+        &p!([est_pos == "above_aruco_locked"] && [! ur.io_state_in_9]),
         &[],
         true,
         None,
@@ -205,7 +214,7 @@ pub fn make_model() -> (Model, SPState) {
         &format!("find_aruco_at_1"),
         p!([!frame_locker.frame_exists] &&
            [(ur.trigger)] && [!(ur.done)] &&
-           [[(ur.goal_feature_name) == "find_aruco_1"] || [(ur.goal_feature_name) == "find_aruco_2"]]),
+           [[(ur.goal_feature_name) == "home_pose"]]), // || [(ur.goal_feature_name) == "find_aruco_2"]]),
         Predicate::TRUE,
         vec![a!(frame_locker.frame_exists)],
         vec![],
@@ -213,28 +222,28 @@ pub fn make_model() -> (Model, SPState) {
 
     // ur move home to find aruco 1
     ur.define_motion(&mut m, p!([est_pos == "home_pose"] && [!looked_at_1]), Predicate::TRUE,
-                     "robotiq_2f_tcp", "find_aruco_1", "move_j", 0.4, 0.3, vec![a!(looked_at_1)], vec![]);
+                     "suction_cup_1", "find_aruco_1", "move_j", 0.4, 0.3, vec![a!(looked_at_1)], vec![]);
 
     // ur move find aruco 1 to home
     ur.define_motion(&mut m, p!(est_pos == "find_aruco_1"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move home to find aruco 2
     ur.define_motion(&mut m, p!([est_pos == "home_pose"] && [looked_at_1]), Predicate::TRUE,
-                     "robotiq_2f_tcp", "find_aruco_2", "move_j", 0.4, 0.3, vec![a!(!looked_at_1)], vec![]);
+                     "suction_cup_1", "find_aruco_2", "move_j", 0.4, 0.3, vec![a!(!looked_at_1)], vec![]);
 
     // ur move find aruco 2 to home
     ur.define_motion(&mut m, p!(est_pos == "find_aruco_2"), Predicate::TRUE,
-                     "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
+                     "suction_cup_1", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // can only lock in the lock positions.
     m.add_invar(
         "lock_at_the_right_pos",
         // todo: add all positions.
-        &p!([frame_locker.is_locking] => [[est_pos == "find_aruco_1"] || [est_pos == "find_aruco_2"]])
+        &p!([frame_locker.is_locking] => [[est_pos == "home_pose"]]) // || [est_pos == "find_aruco_2"]])
     );
 
-    let aruco_locked = m.add_product_bool("aruco_locked");
+    
     let _lock_aruco_op = m.add_op(
         "lock_aruco",
         &p!(!aruco_locked),
@@ -259,7 +268,7 @@ pub fn make_model() -> (Model, SPState) {
             &format!("place_at_{}", b.variable.leaf()),
             &p!([cylinder_in_gripper] && [aruco_locked] && [!b.variable]),
             &[a!(!cylinder_in_gripper), a!(b.variable)],
-            &p!([est_pos == b.at_frame_name] && [(gripper.measured) == "opened"]),
+            &p!([est_pos == b.at_frame_name] && [!ur.io_state_in_9]),
             &[],
             false,
             None,
@@ -269,7 +278,7 @@ pub fn make_model() -> (Model, SPState) {
             &format!("pick_at_{}", b.variable.leaf()),
             &p!([!cylinder_in_gripper] && [aruco_locked] && [b.variable]),
             &[a!(cylinder_in_gripper), a!(!b.variable)],
-            &p!([est_pos == b.at_frame_name] && [(gripper.measured) == "gripping"]),
+            &p!([est_pos == b.at_frame_name] && [ur.io_state_in_9]),
             &[],
             false,
             None,
@@ -285,19 +294,26 @@ pub fn make_model() -> (Model, SPState) {
         &[],
     );
 
+    // m.add_intention(
+    //     "clear_scene",
+    //     false,
+    //     &Predicate::FALSE,
+    //     &p!([!cylinder_in_gripper] && [!cylinder_by_sensor] &&
+    //         [! buffers[0].variable] && [! buffers[1].variable] &&
+    //         [! buffers[2].variable] && [! buffers[3].variable]),
+    //     &[],
+    // );
+
     m.add_intention(
-        "clear_scene",
+        "test_pnp",
         false,
         &Predicate::FALSE,
-        &p!([!cylinder_in_gripper] && [!cylinder_by_sensor] &&
-            [! buffers[0].variable] && [! buffers[1].variable] &&
-            [! buffers[2].variable] && [! buffers[3].variable]),
+        &p!(cylinder_on_table),
         &[],
     );
 
     let mut initial_state = ur.initial_state.clone();
     initial_state.extend(plc.initial_state);
-    initial_state.extend(gripper.initial_state);
     initial_state.extend(frame_locker.initial_state);
 
     let buffer_states: Vec<_> =
@@ -310,6 +326,7 @@ pub fn make_model() -> (Model, SPState) {
             (est_pos, "unknown".to_spvalue()),
             (cylinder_by_sensor, false.to_spvalue()),
             (cylinder_in_gripper, false.to_spvalue()),
+            (cylinder_on_table, false.to_spvalue()),
             (aruco_locked, false.to_spvalue()),
         ]
     ));
