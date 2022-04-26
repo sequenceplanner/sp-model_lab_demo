@@ -112,7 +112,7 @@ impl UrRobotResource {
         resource.add_transition(
             Transition::new(
                 &format!("{}_runner_finish_ok", name),
-                p!([!done] && [!error] && [trigger] && [action_state == "succeeded"]),
+                p!([!done] && [!error] && [trigger] && [success] && [action_state == "succeeded"]),
                 Predicate::TRUE,
                 vec![ a!(done)],
                 vec![],
@@ -136,7 +136,8 @@ impl UrRobotResource {
             Transition::new(
                 &format!("{}_runner_finish_error", name),
                 p!([!done] && [!error] && [trigger] &&
-                   [[action_state == "timeout"] ||
+                   [[[action_state == "succeeded"] && [!success]] ||
+                    [action_state == "timeout"] ||
                     [action_state == "aborted"] ||
                     [action_state == "canceled"]]),
                 Predicate::TRUE,

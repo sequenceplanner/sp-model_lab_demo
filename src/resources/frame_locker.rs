@@ -4,6 +4,7 @@ pub struct FrameLocker {
     pub path: SPPath,
     pub frame_exists: SPPath, // boolean
     pub frame_locked: SPPath, // boolean
+    pub is_locking: SPPath,
     pub initial_state: SPState,
 }
 
@@ -65,10 +66,16 @@ impl FrameLocker {
                 (lock_trigger.clone(), false.to_spvalue()),
             ]);
 
+        let is_locking = Variable::new_predicate("is_locking", p!([lock_trigger] &&
+                                                                  [!frame_locked]));
+        let is_locking = r.add_variable(is_locking);
+
+
         return FrameLocker {
             path: r.path().clone(),
             frame_exists,
             frame_locked,
+            is_locking,
             initial_state,
         }
     }

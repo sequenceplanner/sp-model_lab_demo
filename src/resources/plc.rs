@@ -127,32 +127,5 @@ impl PLCResource {
             int_to_plc_5,
             initial_state,
         }
-
     }
-
-    // To be implemented
-    pub fn command_transition (
-        &self,
-        model: &mut Model,
-        name: &str,
-        guard: Predicate,
-        runner_guard: Predicate,
-        actions: Vec<Action>,
-        runner_actions: Vec<Action>,
-        planner_guard: Predicate,
-        planner_actions: Vec<Action>,
-    ) {
-        let r = model.get_resource(&self.path);
-
-        let t = Transition::new(name, guard, runner_guard, actions,
-                                runner_actions, TransitionType::Controlled);
-        r.add_transition(t);
-
-        let name = format!("{}_planner", name);
-        let t = Transition::new(&name, planner_guard, Predicate::TRUE, planner_actions,
-                                vec![], TransitionType::Effect);
-        r.add_transition(t);
-    }
-
-
 }
