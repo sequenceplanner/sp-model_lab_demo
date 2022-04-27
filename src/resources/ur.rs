@@ -32,7 +32,18 @@ pub struct UrRobotResource {
 //
 
 impl UrRobotResource {
-    pub fn new(resource: &mut Resource, mut frame_domain: Vec<SPValue>, mut tool_frame_domain: Vec<SPValue>) -> UrRobotResource {
+    pub fn new(model: &mut Model, path: &SPPath, mut frame_domain: Vec<SPValue>, tool_frame_domain: Vec<SPValue>) -> UrRobotResource {
+        frame_domain.insert(0, "unknown".to_spvalue());
+
+        // add robot state to high level model
+        let last_visited_frame = model.add_product_domain(
+            "ur_last_visited_frame", &frame_domain);
+
+        let last_visited_with_tcp = model.add_product_domain(
+            "ur_last_visited_with_tcp", &tool_frame_domain);
+
+        let resource = model.get_resource(path);
+
         let name = resource.path().leaf();
         let trigger = Variable::new_boolean("trigger", VariableType::Command);
         let trigger = resource.add_variable(trigger);
@@ -183,19 +194,6 @@ impl UrRobotResource {
             )
         );
 
-        frame_domain.insert(0, "unknown".to_spvalue());
-        tool_frame_domain.insert(0, "unknown".to_spvalue());
-
-        let last_visited_frame = resource.add_variable(Variable::new(
-            "estimated/last_visited_frame",VariableType::Estimated,
-            SPValueType::String, frame_domain.clone(),
-        ));
-
-        let last_visited_with_tcp = resource.add_variable(Variable::new(
-            "estimated/last_visited_with_tcp",
-            VariableType::Estimated,SPValueType::String, tool_frame_domain.clone(),
-        ));
-
         let initial_state = SPState::new_from_values(
             &[
                 (goal_feature_name.clone(), frame_domain[1].clone()),
@@ -235,7 +233,8 @@ impl UrRobotResource {
     pub fn define_motion(
         &mut self,
         model: &mut Model,
-        guard: Predicate,
+        operation_guard: Predicate,
+        transition_guard: Predicate,
         runner_guard: Predicate,
         tcp_frame: &str,
         goal_frame: &str,
@@ -246,6 +245,20 @@ impl UrRobotResource {
         mut action_when_error: Vec<Action>,
         // todo: add runner actions.
     ) {
+        let goal_state = p!([self.trigger] && [self.done] &&
+                            [(self.tcp_name) == tcp_frame] &&
+                            [(self.goal_feature_name) == goal_frame]);
+
+        // Add high level operation for the motion
+        model.add_op(&format!("move_to_{}_with_{}_{}", goal_frame, tcp_frame, self.t_index),
+                     &operation_guard,
+                     &vec![a!((self.last_visited_frame) <- goal_frame),
+                           a!((self.last_visited_with_tcp) <- tcp_frame),],
+                     &goal_state,
+                     &vec![a!(!self.trigger)],
+                     false,
+                     None);
+
         let r = model.get_resource(&self.path);
         let c = &self.command;
         let done = &self.done;
@@ -257,7 +270,7 @@ impl UrRobotResource {
         let trigger = &self.trigger;
         let last_visited_frame = &self.last_visited_frame;
         let last_visited_with_tcp = &self.last_visited_with_tcp;
-        let new_guard = p!([!trigger] && [!done] && [!error] && [p: guard]);
+        let new_guard = p!([!trigger] && [!done] && [!error] && [p: transition_guard]);
         r.add_transition(Transition::new(
             &format!("{}_{}_to_{}_{}", &r.path().leaf(), tcp_frame, goal_frame, self.t_index),
             new_guard,
@@ -274,22 +287,8 @@ impl UrRobotResource {
             ],
             TransitionType::Controlled));
 
-        let guard_done = p!([trigger] && [done] &&
-                            [tcp_name == tcp_frame] &&
-                            [goal_feature_name == goal_frame]);
-        action_when_done.push(a!(!trigger)); // reset
-        action_when_done.push(a!(last_visited_frame <- goal_frame)); // save visited
-        action_when_done.push(a!(last_visited_with_tcp <- tcp_frame)); // save visited
-
-        r.add_transition(Transition::new(
-            &format!("{}_{}_to_{}_{}_done", &r.path().leaf(), tcp_frame, goal_frame, self.t_index),
-            guard_done,
-            Predicate::TRUE,
-            action_when_done,
-            vec![],
-            TransitionType::Auto));
-
         // handle errors. perhaps this transition should be runner by default?
+        // remove this to let the operation fail instead
         let guard_error = p!([trigger] && [error] &&
                              [tcp_name == tcp_frame] &&
                              [goal_feature_name == goal_frame]);

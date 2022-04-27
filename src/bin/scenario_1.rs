@@ -43,6 +43,7 @@ pub fn make_model() -> (Model, SPState) {
                                     "pickup",
                                     "pickdown",
                                     "placedown",
+                                    "drop_out",
                                     "find_aruco_1",
                                     "find_aruco_2",]
         .iter()
@@ -57,7 +58,7 @@ pub fn make_model() -> (Model, SPState) {
         .iter()
         .map(|f| f.to_spvalue())
         .collect();
-    let mut ur = UrRobotResource::new(m.get_resource(&ur), frames, tool_frames);
+    let mut ur = UrRobotResource::new(&mut m, &ur, frames, tool_frames);
 
     let gripper = m.add_resource("gripper");
     let gripper = RobotiqGripper::new(m.get_resource(&gripper));
@@ -73,42 +74,51 @@ pub fn make_model() -> (Model, SPState) {
     let est_pos = ur.last_visited_frame.clone();
 
     // ur move from unknown to home. may be dangerous.
-    ur.define_motion(&mut m, p!(est_pos == "unknown"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "unknown"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move home to pickup
-    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE, Predicate::TRUE,
                          "robotiq_2f_tcp", "pickup", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move pickup to home
-    ur.define_motion(&mut m, p!(est_pos == "pickup"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "pickup"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move pickup to pickdown
-    ur.define_motion(&mut m, p!(est_pos == "pickup"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "pickup"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "pickdown", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move from pickdown back to pickup
-    ur.define_motion(&mut m, p!(est_pos == "pickdown"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "pickdown"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "pickup", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move from pickdown back to home_pose
-    ur.define_motion(&mut m, p!(est_pos == "pickdown"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "pickdown"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move from home to place
-    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "placedown", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move from place back to home_pose
-    ur.define_motion(&mut m, p!(est_pos == "placedown"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "placedown"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
+    // from any buffer, we can to to drop out
+    let guard = p!([est_pos == buffers[0].at_frame_name] || [est_pos == buffers[1].at_frame_name] ||
+                   [est_pos == buffers[2].at_frame_name] || [est_pos == buffers[3].at_frame_name]);
+    ur.define_motion(&mut m, guard, Predicate::TRUE, Predicate::TRUE,
+                     "robotiq_2f_tcp", "drop_out", "move_j", 0.4, 0.3, vec![], vec![]);
+
+    // from drop out to home
+    ur.define_motion(&mut m, p!(est_pos == "drop_out"), Predicate::TRUE, Predicate::TRUE,
+                     "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     for bf in &buffers {
-        ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE,
+        ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE, Predicate::TRUE,
                          "robotiq_2f_tcp", &bf.at_frame_name, "move_j", 0.4, 0.3, vec![], vec![]);
-        ur.define_motion(&mut m, p!(est_pos == bf.at_frame_name), Predicate::TRUE,
+        ur.define_motion(&mut m, p!(est_pos == bf.at_frame_name), Predicate::TRUE, Predicate::TRUE,
                          "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
     }
 
@@ -126,6 +136,7 @@ pub fn make_model() -> (Model, SPState) {
         // todo: add all positions.
         &p!([gripper.is_opening] => [[est_pos == "pickup"] ||
                                      [est_pos == "placedown"] ||
+                                     [est_pos == "drop_out"] ||
                                      [est_pos == "p1_down"] || [est_pos == "p2_down"] ||
                                      [est_pos == "p3_down"] || [est_pos == "p4_down"]]),
     );
@@ -137,8 +148,7 @@ pub fn make_model() -> (Model, SPState) {
 
 
     // PLC operations.
-    m.add_transition(Transition::new("start_load", p!(
-        [!plc.bool_to_plc_1] && [est_pos != "pickdown"]), Predicate::TRUE,
+    m.add_transition(Transition::new("start_load", p!([!plc.bool_to_plc_1]), Predicate::TRUE,
                                 vec![ a!(plc.bool_to_plc_1)], vec![], TransitionType::Controlled));
     m.add_transition(Transition::new("finish_load",
                                      p!([!plc.bool_from_plc_1] && [plc.bool_to_plc_1]), Predicate::TRUE,
@@ -146,7 +156,7 @@ pub fn make_model() -> (Model, SPState) {
     m.add_op(
         "cylinder_to_sensor",
         // operation model guard.
-        &p!(!cylinder_by_sensor),
+        &p!([!cylinder_by_sensor] && [est_pos != "pickdown"]),
         // operation model effects.
         &[a!(cylinder_by_sensor)],
         // low level goal
@@ -166,7 +176,7 @@ pub fn make_model() -> (Model, SPState) {
     m.add_op(
         "cylinder_from_sensor",
         // operation model guard.
-        &p!(cylinder_by_sensor),
+        &p!([cylinder_by_sensor] && [est_pos != "pickdown"]),
         // operation model effects.
         &[a!(!cylinder_by_sensor)],
         // low level goal
@@ -180,21 +190,31 @@ pub fn make_model() -> (Model, SPState) {
 
     let _pick_at_conv_op = m.add_op(
         "pick_at_conv",
-        &p!([!cylinder_in_gripper] && [cylinder_by_sensor]),
+        &p!([!cylinder_in_gripper] && [cylinder_by_sensor] && [est_pos == "pickdown"]),
         &[a!(cylinder_in_gripper), a!(!cylinder_by_sensor)],
-        &p!([est_pos == "pickdown"] && [(gripper.measured) == "gripping"]),
+        &p!((gripper.measured) == "gripping"),
         &[],
-        true,
+        false,
         None,
     );
 
     let _place_at_conv_op = m.add_op(
         "place_at_conv",
-        &p!([cylinder_in_gripper] && [!cylinder_by_sensor]),
+        &p!([cylinder_in_gripper] && [!cylinder_by_sensor] && [est_pos == "placedown"]),
         &[a!(!cylinder_in_gripper), a!(cylinder_by_sensor)],
-        &p!([est_pos == "placedown"] && [(gripper.measured) == "opened"]),
+        &p!((gripper.measured) == "opened"),
         &[],
-        true,
+        false,
+        None,
+    );
+
+    let _drop_at_drop_out = m.add_op(
+        "drop_at_drop_out",
+        &p!([cylinder_in_gripper] && [est_pos == "drop_out"]),
+        &[a!(!cylinder_in_gripper)],
+        &p!((gripper.measured) == "opened"),
+        &[],
+        false,
         None,
     );
 
@@ -213,27 +233,27 @@ pub fn make_model() -> (Model, SPState) {
         TransitionType::Effect));
 
     // ur move home to find aruco 1
-    ur.define_motion(&mut m, p!([est_pos == "home_pose"] && [!looked_at_1]), Predicate::TRUE,
-                     "robotiq_2f_tcp", "find_aruco_1", "move_j", 0.4, 0.3, vec![a!(looked_at_1)], vec![]);
+    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE, Predicate::TRUE,
+                     "robotiq_2f_tcp", "find_aruco_1", "move_j", 0.4, 0.3, vec![], vec![]);
 
-    // ur move find aruco 1 to home
-    ur.define_motion(&mut m, p!(est_pos == "find_aruco_1"), Predicate::TRUE,
+    // // ur move find aruco 1 to home
+    ur.define_motion(&mut m, p!(est_pos == "find_aruco_1"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move home to find aruco 2
-    ur.define_motion(&mut m, p!([est_pos == "home_pose"] && [looked_at_1]), Predicate::TRUE,
-                     "robotiq_2f_tcp", "find_aruco_2", "move_j", 0.4, 0.3, vec![a!(!looked_at_1)], vec![]);
+    ur.define_motion(&mut m, p!(est_pos == "home_pose"), Predicate::TRUE, Predicate::TRUE,
+                     "robotiq_2f_tcp", "find_aruco_2", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // ur move find aruco 2 to home
-    ur.define_motion(&mut m, p!(est_pos == "find_aruco_2"), Predicate::TRUE,
+    ur.define_motion(&mut m, p!(est_pos == "find_aruco_2"), Predicate::TRUE, Predicate::TRUE,
                      "robotiq_2f_tcp", "home_pose", "move_j", 0.4, 0.3, vec![], vec![]);
 
     // can only lock in the lock positions.
-    m.add_invar(
-        "lock_at_the_right_pos",
-        // todo: add all positions.
-        &p!([frame_locker.is_locking] => [[est_pos == "find_aruco_1"] || [est_pos == "find_aruco_2"]])
-    );
+    // m.add_invar(
+    //     "lock_at_the_right_pos",
+    //     // todo: add all positions.
+    //     &p!([frame_locker.is_locking] => [[est_pos == "find_aruco_1"] || [est_pos == "find_aruco_2"]])
+    // );
 
     let aruco_locked = m.add_product_bool("aruco_locked");
     let _lock_aruco_op = m.add_op(
@@ -258,9 +278,9 @@ pub fn make_model() -> (Model, SPState) {
     for b in &buffers {
         let _place_op = m.add_op(
             &format!("place_at_{}", b.variable.leaf()),
-            &p!([cylinder_in_gripper] && [aruco_locked] && [!b.variable]),
+            &p!([cylinder_in_gripper] && [aruco_locked] && [!b.variable] && [est_pos == b.at_frame_name]),
             &[a!(!cylinder_in_gripper), a!(b.variable)],
-            &p!([est_pos == b.at_frame_name] && [(gripper.measured) == "opened"]),
+            &p!([(gripper.measured) == "opened"]),
             &[],
             false,
             None,
@@ -268,9 +288,9 @@ pub fn make_model() -> (Model, SPState) {
 
         let _pick_op = m.add_op(
             &format!("pick_at_{}", b.variable.leaf()),
-            &p!([!cylinder_in_gripper] && [aruco_locked] && [b.variable]),
+            &p!([!cylinder_in_gripper] && [aruco_locked] && [b.variable] && [est_pos == b.at_frame_name]),
             &[a!(cylinder_in_gripper), a!(!b.variable)],
-            &p!([est_pos == b.at_frame_name] && [(gripper.measured) == "gripping"]),
+            &p!((gripper.measured) == "gripping"),
             &[],
             false,
             None,
